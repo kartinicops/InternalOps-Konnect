@@ -1,0 +1,58 @@
+import os
+from rest_framework import serializers
+from .models import Projects
+from .models import Client_companies
+from .models import Client_members
+from .models import geographies
+from .models import companiesOfInterest
+from .models import Project_files
+from .models import Client_teams
+#serializers pack and unpack data into JSON
+class ProjectsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Projects
+        fields = ["project_id", "project_name", "user_id", "status", "client_company_id", "geography_id", "timeline_start", "timeline_end", "expected_calls", "completed_calls", "general_screening_questions", "client_requirements", "created_at"]
+
+class ClientCompaniesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client_companies
+        fields = ["client_company_id", "company_name"]
+
+class ClientMembersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client_members
+        fields = ["client_member_id", "client_company_id", "client_name", "client_email", "phone_number"]
+
+class ClientTeamsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client_teams
+        fields = ["client_team_id", "client_member_id", "project_id"]
+
+class GeographiesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = geographies
+        fields = ["geography_id", "country", "city", "timezone"]
+
+class CompaniesOfInterestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = companiesOfInterest
+        fields = ["company_of_interest_id", "project_id", "company_name", "is_past", "is_current"]
+
+class ProjectFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project_files
+        fields = '__all__'
+
+    #validate uploaded file extension
+    def validate_file_type(self, value):
+        allowed_types = ['pdf', 'excel', 'word']
+        if value not in allowed_types:
+            raise serializers.ValidationError("File type must be either PDF, Excel, or Word.")
+        return value
+    
+    def validate_file_path(self, value):
+        ext = os.path.splitext(value.name)[1].lower()
+        allowed_extensions = ['.pdf', '.xlsx', '.xls', '.docx', '.doc']
+        if ext not in allowed_extensions:
+            raise serializers.ValidationError("Only PDF, Excel, or Word documents are allowed.")
+        return value
