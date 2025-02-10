@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 
 // Types
 interface Expert {
-  id: number
+  id: number 
   position: string
   company: string
   period: string

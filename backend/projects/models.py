@@ -130,6 +130,8 @@ class Project_pipelines(models.Model):
     project_pipeline_id = models.AutoField(primary_key=True, null=False)
     expert_id = models.ForeignKey(Experts,on_delete=models.SET_NULL, null=True, related_name="project_pipeline")
     project_id = models.ForeignKey(Projects,on_delete=models.CASCADE, null=True, related_name="project_pipeline")
+    user_id = models.ForeignKey(Users,on_delete=models.SET_NULL, null=True, related_name="project_pipeline") 
+    #if user|PIC is deleted, the value will be null. Can be called from users through related_name
     created_at = models.DateTimeField(auto_now_add=True)  # This will automatically store the creation timestamp
     
     class Meta:
@@ -147,8 +149,19 @@ class Project_published(models.Model):
     expert_id = models.ForeignKey(Experts,on_delete=models.SET_NULL, null=True, related_name="project_publish")
     project_id = models.ForeignKey(Projects,on_delete=models.CASCADE, null=True, related_name="project_publish")
     status_id = models.ForeignKey(Published_statuses,on_delete=models.SET_NULL, null=True, related_name="project_publish")
+    user_id = models.ForeignKey(Users,on_delete=models.SET_NULL, null=True, related_name="project_publish") 
+    #if user|PIC is deleted, the value will be null. Can be called from users through related_name
     angles = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)  # This will automatically store the creation timestamp
     
     class Meta:
         db_table = "project_published"
+        
+class Project_with_experts(models.Model):
+    project_with_experts_id = models.AutoField(primary_key=True, null=False)
+    project_id = models.ForeignKey(Projects,on_delete=models.CASCADE, null=True, related_name="project_with_experts")
+    expert_id = models.ForeignKey(Experts,on_delete=models.CASCADE, null=True, related_name="project_with_experts")
+    biograph = models.TextField(null=False) #must be filled
+    
+    class Meta:
+        db_table = "project_with_experts"

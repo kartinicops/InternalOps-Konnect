@@ -17,6 +17,13 @@ from .serializers import ProjectFileSerializer
 from rest_framework import viewsets
 from .serializers import ClientMembersSerializer
 from .serializers import ClientTeamsSerializer
+from .models import Project_pipelines
+from .models import Project_published
+from .serializers import ProjectPipelineSerializer
+from .serializers import ProjectPublishedSerializer
+from .models import Project_with_experts
+from .serializers import ProjectExpertsSerializer
+
 
 # Create your views here.
 class ProjectViewSet(viewsets.ModelViewSet): #being a subclass of viewsets.ModelViewSet enable GET, POST, PUT, PATCH, DELETE
@@ -56,3 +63,20 @@ class ProjectFilesViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     queryset = Project_files.objects.all()
     # Specify which serializer to use
     serializer_class = ProjectFileSerializer
+    
+class ProjectPipelinesViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
+    # Specify the queryset to retrieve objects
+    queryset = Project_pipelines.objects.all()
+    # Specify which serializer to use
+    serializer_class = ProjectPipelineSerializer
+class ProjectPublishedViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
+    # Specify the queryset to retrieve objects
+    queryset = Project_published.objects.all()
+    # Specify which serializer to use
+    serializer_class = ProjectPublishedSerializer
+    
+class ProjectExpertsViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
+    # Specify the queryset to retrieve objects
+    queryset = Project_with_experts.objects.all()
+    # Specify which serializer to use
+    serializer_class = ProjectExpertsSerializer

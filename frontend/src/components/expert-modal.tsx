@@ -1,45 +1,46 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Star, Briefcase, Phone, Mail, Globe, MapPin } from "lucide-react";
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { Star, Briefcase, Phone, Mail, Globe, MapPin } from "lucide-react"
 
 interface ExpertModalProps {
   expert: {
-    id: string;
-    title: string;
-    company: string;
-    dateRange: string;
-    lastPublished: string;
-    projects: number;
-    calls: number;
-    isFormer: boolean;
-    email: string;
-    phone: string;
-    timezone: string;
-    location: string;
+    id: string
+    title: string
+    company: string
+    dateRange: string
+    lastPublished: string
+    projects: number
+    calls: number
+    isFormer: boolean
+    email: string
+    phone: string
+    timezone: string
+    location: string
     career: Array<{
-      title: string;
-      company: string;
-      dateRange: string;
-    }>;
+      title: string
+      company: string
+      dateRange: string
+    }>
     projects: Array<{
-      name: string;
-      status: string;
-      rating: number;
-    }>;
-  } | null;
-  isOpen: boolean;
-  onClose: () => void;
+      name: string
+      status: string
+      rating: number
+    }>
+  } | null
+  isOpen: boolean
+  onClose: () => void
+  onAddToProject: () => void
 }
 
-export function ExpertModal({ expert, isOpen, onClose }: ExpertModalProps) {
-  const [activeTab, setActiveTab] = useState<"career" | "projects">("career");
+export function ExpertModal({ expert, isOpen, onClose, onAddToProject }: ExpertModalProps) {
+  const [activeTab, setActiveTab] = useState<"career" | "projects">("career")
 
-  if (!expert) return null;
+  if (!expert) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -62,8 +63,12 @@ export function ExpertModal({ expert, isOpen, onClose }: ExpertModalProps) {
         <div className="space-y-6 px-6">
           {/* Contact Info */}
           <div className="grid grid-cols-2 gap-4 rounded-lg border bg-secondary/5 p-4">
-            {[{ icon: Mail, text: expert.email }, { icon: Phone, text: expert.phone }, 
-              { icon: Globe, text: expert.timezone }, { icon: MapPin, text: expert.location }].map((item, index) => (
+            {[
+              { icon: Mail, text: expert.email },
+              { icon: Phone, text: expert.phone },
+              { icon: Globe, text: expert.timezone },
+              { icon: MapPin, text: expert.location },
+            ].map((item, index) => (
               <div
                 key={index}
                 className="flex items-center gap-2 group cursor-pointer transition-all hover:bg-secondary/10 p-2 rounded"
@@ -75,22 +80,21 @@ export function ExpertModal({ expert, isOpen, onClose }: ExpertModalProps) {
           </div>
 
           {/* Tab Buttons */}
-        <div className="flex gap-6 border-b">
-        {["career", "projects"].map((tab) => (
-            <button
-            key={tab}
-            className={`relative pb-2 px-4 text-sm transition-all ${
-                activeTab === tab
-                ? "text-blue-600 font-semibold border-b-2 border-blue-600"
-                : "text-muted-foreground hover:text-primary"
-            }`}
-            onClick={() => setActiveTab(tab as "career" | "projects")}
-            >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-        ))}
-        </div>
-
+          <div className="flex gap-6 border-b">
+            {["career", "projects"].map((tab) => (
+              <button
+                key={tab}
+                className={`relative pb-2 px-4 text-sm transition-all ${
+                  activeTab === tab
+                    ? "text-blue-600 font-semibold border-b-2 border-blue-600"
+                    : "text-muted-foreground hover:text-primary"
+                }`}
+                onClick={() => setActiveTab(tab as "career" | "projects")}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 dialog-content">
@@ -135,7 +139,9 @@ export function ExpertModal({ expert, isOpen, onClose }: ExpertModalProps) {
                         <Star
                           key={i}
                           className={`h-4 w-4 transition-all ${
-                            i < project.rating ? "text-yellow-400 hover:text-yellow-500" : "text-gray-200 hover:text-gray-300"
+                            i < project.rating
+                              ? "text-yellow-400 hover:text-yellow-500"
+                              : "text-gray-200 hover:text-gray-300"
                           }`}
                           fill="currentColor"
                         />
@@ -159,13 +165,13 @@ export function ExpertModal({ expert, isOpen, onClose }: ExpertModalProps) {
           >
             Close
           </Button>
-          
-          <Button className="transition-all hover:bg-blue-100 hover:shadow-md">
+
+          <Button className="transition-all hover:bg-blue-100 hover:shadow-md" onClick={onAddToProject}>
             <Briefcase className="mr-2 h-4 w-4" />
             Add to Project
           </Button>
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

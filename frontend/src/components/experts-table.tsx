@@ -4,8 +4,9 @@ import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Download, Briefcase } from "lucide-react"
+import { Download, Briefcase } from 'lucide-react'
 import { ExpertModal } from "./expert-modal"
+import { ProjectSelectModal } from "./project-select-modal"
 
 interface Expert {
   id: string
@@ -104,9 +105,12 @@ const experts: Expert[] = [
 export function ExpertsTable() {
   const [selectedExperts, setSelectedExperts] = useState<string[]>([])
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null)
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false)
 
   const handleCheckboxChange = (id: string) => {
-    setSelectedExperts((prev) => (prev.includes(id) ? prev.filter((expertId) => expertId !== id) : [...prev, id]))
+    setSelectedExperts((prev) =>
+      prev.includes(id) ? prev.filter((expertId) => expertId !== id) : [...prev, id]
+    )
   }
 
   const handleExpertClick = (expert: Expert) => {
@@ -117,7 +121,7 @@ export function ExpertsTable() {
     const data = JSON.stringify(
       experts.filter((expert) => selectedExperts.includes(expert.id)),
       null,
-      2,
+      2
     )
     const blob = new Blob([data], { type: "application/json" })
     const url = URL.createObjectURL(blob)
@@ -126,6 +130,12 @@ export function ExpertsTable() {
     a.download = "experts.json"
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleProjectSelect = (projectId: string) => {
+    console.log("Selected project:", projectId)
+    console.log("Selected experts:", selectedExperts)
+    setIsProjectModalOpen(false)
   }
 
   return (
@@ -143,53 +153,47 @@ export function ExpertsTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-  {experts.map((expert) => (
-    <TableRow
-      key={expert.id}
-      className="cursor-pointer transition-colors hover:bg-secondary/10"
-      onClick={() => handleExpertClick(expert)}
-    >
-      <TableCell onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          className="rounded border-gray-300 text-primary transition-colors hover:border-primary focus:ring-primary focus:ring-offset-0"
-          checked={selectedExperts.includes(expert.id)}
-          onChange={() => handleCheckboxChange(expert.id)}
-        />
-      </TableCell>
-      
-      {/* Title */}
-      <TableCell>
-        <div className="flex items-center gap-2">
-          {expert.isFormer && (
-            <Badge variant="secondary" className="text-xs transition-colors hover:bg-secondary/80">
-              Former
-            </Badge>
-          )}
-          <span className="transition-colors group-hover:text-primary">{expert.title}</span>
-        </div>
-      </TableCell>
-      
-      {/* Company & Date Range */}
-      <TableCell>
-        <div className="space-y-1">
-          <div>{expert.company}</div>
-          <div className="text-sm text-muted-foreground">{expert.dateRange}</div>
-        </div>
-      </TableCell>
-
-      {/* Last Published */}
-      <TableCell>{expert.lastPublished}</TableCell>
-
-      {/* Projects */}
-      <TableCell className="text-center">{expert.projects.length}</TableCell>
-
-      {/* Calls */}
-      <TableCell className="text-center">{expert.calls}</TableCell>
-    </TableRow>
-  ))}
-</TableBody>
-
+            {experts.map((expert) => (
+              <TableRow
+                key={expert.id}
+                className="cursor-pointer transition-colors hover:bg-secondary/10"
+                onClick={() => handleExpertClick(expert)}
+              >
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-primary transition-colors hover:border-primary focus:ring-primary focus:ring-offset-0"
+                    checked={selectedExperts.includes(expert.id)}
+                    onChange={() => handleCheckboxChange(expert.id)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {expert.isFormer && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs transition-colors hover:bg-secondary/80"
+                      >
+                        Former
+                      </Badge>
+                    )}
+                    <span className="transition-colors group-hover:text-primary">
+                      {expert.title}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <div>{expert.company}</div>
+                    <div className="text-sm text-muted-foreground">{expert.dateRange}</div>
+                  </div>
+                </TableCell>
+                <TableCell>{expert.lastPublished}</TableCell>
+                <TableCell className="text-center">{expert.projects.length}</TableCell>
+                <TableCell className="text-center">{expert.calls}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
         </Table>
       </div>
 
@@ -203,15 +207,31 @@ export function ExpertsTable() {
             <Download className="mr-2 h-4 w-4" />
             Download Experts
           </Button>
-          <Button className="transition-all hover:bg-primary-dark hover:shadow-md">
+          <Button 
+            className="transition-all hover:bg-primary-dark hover:shadow-md"
+            onClick={() => setIsProjectModalOpen(true)}
+          >
             <Briefcase className="mr-2 h-4 w-4" />
             Add to Project
           </Button>
         </div>
       )}
 
-      <ExpertModal expert={selectedExpert} isOpen={selectedExpert !== null} onClose={() => setSelectedExpert(null)} />
+      <ExpertModal
+        expert={selectedExpert}
+        isOpen={selectedExpert !== null}
+        onClose={() => setSelectedExpert(null)}
+        onAddToProject={() => {
+          setSelectedExpert(null)
+          setIsProjectModalOpen(true)
+        }}
+      />
+
+      <ProjectSelectModal
+        isOpen={isProjectModalOpen}
+        onClose={() => setIsProjectModalOpen(false)}
+        onSelect={handleProjectSelect}
+      />
     </div>
   )
 }
-

@@ -54,6 +54,7 @@ Website: https://www.konnect.co.id
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8">
+      
       <Card className="mx-auto max-w-4xl shadow-lg">
         <CardHeader className="bg-primary text-primary-foreground">
           <CardTitle className="text-2xl font-bold">Compose Email</CardTitle>

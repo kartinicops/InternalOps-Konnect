@@ -25,6 +25,10 @@ class Experts(models.Model):
 
     class Meta:
         db_table = "experts"
+    
+    def __str__(self):
+        # Return the expert name as display
+        return f"{self.full_name}"
 
 class ExpertExperiences(models.Model):
     experience_id = models.AutoField(primary_key=True, null=False)

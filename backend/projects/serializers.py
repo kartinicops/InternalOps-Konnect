@@ -7,11 +7,32 @@ from .models import geographies
 from .models import companiesOfInterest
 from .models import Project_files
 from .models import Client_teams
+from .models import Project_pipelines
+from .models import Project_published
+from .models import Project_with_experts
+
 #serializers pack and unpack data into JSON
 class ProjectsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Projects
         fields = ["project_id", "project_name", "user_id", "status", "client_company_id", "geography_id", "timeline_start", "timeline_end", "expected_calls", "completed_calls", "general_screening_questions", "client_requirements", "created_at"]
+        
+        
+class ProjectPipelineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project_pipelines
+        fields = ["project_pipeline_id", "expert_id", "project_id", "created_at"]
+        
+class ProjectExpertsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project_with_experts
+        fields = ["project_with_experts_id", "project_id", "expert_id", "biograph"]
+
+
+class ProjectPublishedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project_published
+        fields = ["project_publish_id", "expert_id", "project_id", "status_id", "angles", "created_at"]
 
 class ClientCompaniesSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,32 +1,20 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/page"
 import { Button } from "@/components/ui/button"
 import { LogIn, UserPlus, Menu } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface NavProps {
   isProjectDetail?: boolean
   projectName?: string
-  projectId?: string
 }
 
-export function Nav({ isProjectDetail = false, projectName, projectId }: NavProps) {
+export function Nav({ isProjectDetail = false, projectName }: NavProps) {
   const pathname = usePathname()
-  const router = useRouter()
-
-  const handleOverviewClick = () => {
-    if (projectId) {
-      router.push(`/project-detail?id=${projectId}`)
-    }
-  }
 
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-blue-200 bg-blue-50">
@@ -49,7 +37,7 @@ export function Nav({ isProjectDetail = false, projectName, projectId }: NavProp
               {isProjectDetail ? projectName || "Project Name" : "Logo"}
             </span>
           </Link>
-          
+
           {!isProjectDetail && (
             <div className="hidden md:flex md:items-center md:space-x-4">
               <Button
@@ -57,7 +45,7 @@ export function Nav({ isProjectDetail = false, projectName, projectId }: NavProp
                 variant="link"
                 className={cn(
                   "text-blue-600 hover:text-blue-800",
-                  pathname === "/projects" && "font-semibold text-blue-800"
+                  pathname === "/projects" && "font-semibold text-blue-800",
                 )}
               >
                 <Link href="/projects">Projects</Link>
@@ -67,28 +55,17 @@ export function Nav({ isProjectDetail = false, projectName, projectId }: NavProp
                 variant="link"
                 className={cn(
                   "text-blue-600 hover:text-blue-800",
-                  pathname === "/experts" && "font-semibold text-blue-800"
+                  pathname === "/experts" && "font-semibold text-blue-800",
                 )}
               >
                 <Link href="/experts">Experts</Link>
               </Button>
-
-              {/* <Button
-                asChild
-                variant="outline"
-                className={cn(
-                  "border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800",
-                  pathname === "/edit-project-detail" && "bg-blue-100 text-blue-800"
-                )}
-              >
-                <Link href="/edit-project-detail">Edit Project Detail</Link>
-              </Button> */}
               <Button
                 asChild
                 variant="outline"
                 className={cn(
                   "border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800",
-                  pathname === "/send-email" && "bg-blue-100 text-blue-800"
+                  pathname === "/send-email" && "bg-blue-100 text-blue-800",
                 )}
               >
                 <Link href="/send-email">Send Email</Link>
@@ -98,47 +75,19 @@ export function Nav({ isProjectDetail = false, projectName, projectId }: NavProp
         </div>
 
         <div className="flex items-center space-x-4">
-          {isProjectDetail && (
-            <div className="hidden md:flex md:items-center md:space-x-4">
-              <Button
-                variant={pathname.startsWith("/project-detail") ? "secondary" : "ghost"}
-                className="font-semibold text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-                onClick={handleOverviewClick}
-              >
-                Overview
-              </Button>
-              <Button
-                asChild
-                variant={pathname.startsWith("/projects-experts") ? "secondary" : "ghost"}
-                className="font-semibold text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-              >
-                <Link href={`/projects-experts?id=${projectId}`}>
-                  Experts
-                </Link>
-              </Button>
-            </div>
-          )}
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800 md:hidden">
+              <Button
+                variant="outline"
+                size="icon"
+                className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800 md:hidden"
+              >
                 <Menu className="h-4 w-4" />
                 <span className="sr-only">Toggle menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-blue-50">
-              {isProjectDetail ? (
-                <>
-                  <DropdownMenuItem onSelect={handleOverviewClick} className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
-                    Overview
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
-                    <Link href={`/projects-experts?id=${projectId}`}>
-                      Experts
-                    </Link>
-                  </DropdownMenuItem>
-                </>
-              ) : (
+              {!isProjectDetail && (
                 <>
                   <DropdownMenuItem asChild className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
                     <Link href="/projects">Projects</Link>
@@ -159,7 +108,11 @@ export function Nav({ isProjectDetail = false, projectName, projectId }: NavProp
 
           {!isProjectDetail && (
             <div className="hidden items-center space-x-4 sm:flex">
-              <Button asChild variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800">
+              <Button
+                asChild
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+              >
                 <Link href="/login">
                   <LogIn className="mr-2 h-4 w-4" />
                   Login
