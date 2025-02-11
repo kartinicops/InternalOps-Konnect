@@ -10,6 +10,8 @@ from .models import Client_teams
 from .models import Project_pipelines
 from .models import Project_published
 from .models import Project_with_experts
+from .models import Published_statuses
+
 
 #serializers pack and unpack data into JSON
 class ProjectsSerializer(serializers.ModelSerializer):
@@ -21,8 +23,7 @@ class ProjectsSerializer(serializers.ModelSerializer):
 class ProjectPipelineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project_pipelines
-        fields = ["project_pipeline_id", "expert_id", "project_id", "created_at"]
-        
+        fields = ["project_pipeline_id", "expert_id", "project_id", "user_id", "created_at"]        
 class ProjectExpertsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project_with_experts
@@ -32,8 +33,11 @@ class ProjectExpertsSerializer(serializers.ModelSerializer):
 class ProjectPublishedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project_published
-        fields = ["project_publish_id", "expert_id", "project_id", "status_id", "angles", "created_at"]
-
+        fields = ["project_publish_id", "expert_id", "project_id", "user_id", "status_id", "angles", "created_at"]
+class PublishedStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Published_statuses
+        fields = ["status_id", "status_name"]
 class ClientCompaniesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client_companies

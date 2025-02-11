@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Download, Briefcase } from 'lucide-react'
 import { ExpertModal } from "./expert-modal"
 import { ProjectSelectModal } from "./project-select-modal"
+import API from "@/services/api" // Adjust with actual API service path
 
 interface Expert {
   id: string
@@ -33,79 +34,29 @@ interface Expert {
   }>
 }
 
-const experts: Expert[] = [
-  {
-    id: "1",
-    title: "Head of Sales France Benelux Nordics & Export",
-    company: "TEREOS",
-    dateRange: "Apr 2022 - Feb 2023",
-    lastPublished: "-",
-    projects: 1,
-    calls: 0,
-    isFormer: true,
-    email: "expert1@example.com",
-    phone: "+33 1 23 45 67 89",
-    timezone: "Europe/Paris",
-    location: "Paris, France",
-    career: [
-      {
-        title: "Head of Sales France Benelux Nordics & Export",
-        company: "TEREOS",
-        dateRange: "Apr 2022 - Feb 2023",
-      },
-      {
-        title: "Sales Director",
-        company: "Previous Company",
-        dateRange: "Jan 2018 - Mar 2022",
-      },
-    ],
-    projects: [
-      {
-        name: "European Market Expansion",
-        status: "Completed",
-        rating: 5,
-      },
-    ],
-  },
-  {
-    id: "2",
-    title: "Total Rewards and Data Management",
-    company: "Hyundai Asia Resources, Inc. (HARI)",
-    dateRange: "Mar 2018 - Aug 2020",
-    lastPublished: "9 Dec 2024 15:57",
-    projects: 1,
-    calls: 0,
-    isFormer: true,
-    email: "expert2@example.com",
-    phone: "+63 2 345 6789",
-    timezone: "Asia/Manila",
-    location: "Manila, Philippines",
-    career: [
-      {
-        title: "Total Rewards and Data Management",
-        company: "Hyundai Asia Resources, Inc. (HARI)",
-        dateRange: "Mar 2018 - Aug 2020",
-      },
-      {
-        title: "HR Specialist",
-        company: "Previous Company",
-        dateRange: "Jun 2015 - Feb 2018",
-      },
-    ],
-    projects: [
-      {
-        name: "Employee Benefits Optimization",
-        status: "In Progress",
-        rating: 4,
-      },
-    ],
-  },
-]
-
 export function ExpertsTable() {
+  const [experts, setExperts] = useState<Expert[]>([])
   const [selectedExperts, setSelectedExperts] = useState<string[]>([])
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null)
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // Fetching experts from the API
+  useEffect(() => {
+    const fetchExperts = async () => {
+      try {
+        setLoading(true)
+        const response = await API.get("/api/experts/") // API endpoint to fetch experts
+        setExperts(response.data)
+      } catch (error) {
+        console.error("Error fetching experts:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchExperts()
+  }, [])
 
   const handleCheckboxChange = (id: string) => {
     setSelectedExperts((prev) =>
@@ -136,6 +87,10 @@ export function ExpertsTable() {
     console.log("Selected project:", projectId)
     console.log("Selected experts:", selectedExperts)
     setIsProjectModalOpen(false)
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading experts...</div>
   }
 
   return (

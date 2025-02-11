@@ -23,6 +23,9 @@ from .serializers import ProjectPipelineSerializer
 from .serializers import ProjectPublishedSerializer
 from .models import Project_with_experts
 from .serializers import ProjectExpertsSerializer
+from .models import Published_statuses
+from .serializers import PublishedStatusSerializer
+
 
 
 # Create your views here.
@@ -74,6 +77,13 @@ class ProjectPublishedViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DE
     queryset = Project_published.objects.all()
     # Specify which serializer to use
     serializer_class = ProjectPublishedSerializer
+    
+class PublishStatusViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
+    # Specify the queryset to retrieve objects
+    queryset =Published_statuses.objects.all()
+    # Specify which serializer to use
+    serializer_class = PublishedStatusSerializer
+    
     
 class ProjectExpertsViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     # Specify the queryset to retrieve objects
