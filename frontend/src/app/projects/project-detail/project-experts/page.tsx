@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Plus, Download } from "lucide-react";
@@ -14,15 +14,17 @@ interface Expert {
   fullName: string;
   company: string;
   contactDetails: string;
-  addedBy: string;
   addedAt: string;
+  pipelineAddedTime: string;
+  publishedAddedTime: string;
   status?: string;
 }
 
 export default function ProjectExpertsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"pipeline" | "published">("pipeline");
-  const [experts, setExperts] = useState<Expert[]>([]);
+  const [pipelineExperts, setPipelineExperts] = useState<Expert[]>([]);
+  const [publishedExperts, setPublishedExperts] = useState<Expert[]>([]);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [projectName, setProjectName] = useState("");
   const searchParams = useSearchParams();
@@ -33,11 +35,53 @@ export default function ProjectExpertsPage() {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 
+  // Function to fetch experts for pipeline and published sections separately
+  const fetchExpertsByProjectId = async (projectId: number) => {
+    const pipelineResponse = await API.get(`/project_pipeline?project_id=${projectId}`);
+    const publishedResponse = await API.get(`/project_published?project_id=${projectId}`);
+    return {
+      pipeline: pipelineResponse.data,
+      published: publishedResponse.data,
+    };
+  };
+
+  // Function to fetch expert details and their most recent experience (company)
+  const fetchExpertDetailsAndExperience = async (expertId: number) => {
+    try {
+      // Fetch expert data (contact details, etc.)
+      const expertResponse = await API.get(`/experts/${expertId}`);
+
+      // Fetch all experiences for the given expert
+      const expertExperienceResponse = await API.get(`/expert_experiences/?expert_id=${expertId}`);
+
+      // Sort and get the latest experience based on start date
+      const experience = expertExperienceResponse.data.sort((a: any, b: any) => {
+        const dateA = new Date(a.start_date);
+        const dateB = new Date(b.start_date);
+        return dateB.getTime() - dateA.getTime(); // Sorting by date
+      })[0];
+
+      // Get company name from the most recent experience
+      const company = experience?.company_name || "No Company"; // Default to "No Company" if no experience
+
+      return {
+        fullName: expertResponse.data.full_name,
+        contactDetails: expertResponse.data.phone_number,
+        company,  // Company from the most recent experience
+      };
+    } catch (error) {
+      console.error("Error fetching expert details:", error);
+      return {
+        fullName: "Unknown",
+        contactDetails: "No Contact",
+        company: "No Company",
+      };
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        await API.get("/api/csrf/");
-
         const response = await API.get(`/projects/${searchParams.get("id")}`, { withCredentials: true });
         const project = response.data;
         const fetchedProjectId = project.project_id;
@@ -47,17 +91,44 @@ export default function ProjectExpertsPage() {
         setProjectName(fetchedProjectName);
 
         if (fetchedProjectId) {
-          const [pipelineResponse, publishedResponse] = await Promise.all([
-            API.get(`/project_pipeline?project_id=${fetchedProjectId}`),
-            API.get(`/project_published?project_id=${fetchedProjectId}`)
-          ]);
+          const expertsFromProject = await fetchExpertsByProjectId(fetchedProjectId);
 
-          const mappedData = [
-            ...pipelineResponse.data.map((expert:any) => ({ ...expert, status: "pipeline" })),
-            ...publishedResponse.data.map((expert:any) => ({ ...expert, status: "published" }))
-          ];
+          // Fetch pipeline experts data and join with their most recent company name and contact details
+          const pipelineExpertData = await Promise.all(
+            expertsFromProject.pipeline.map(async (expert: any) => {
+              const { fullName, company, contactDetails } = await fetchExpertDetailsAndExperience(expert.expert_id);
+              return {
+                id: expert.expert_id,
+                fullName,
+                company,
+                contactDetails,
+                addedAt: expert.created_at,
+                pipelineAddedTime: expert.created_at,
+                publishedAddedTime: expert.created_at,
+                status: expert.status || "Not Available",
+              };
+            })
+          );
 
-          setExperts(mappedData);
+          // Fetch published experts data and join with their most recent company name and contact details
+          const publishedExpertData = await Promise.all(
+            expertsFromProject.published.map(async (expert: any) => {
+              const { fullName, company, contactDetails } = await fetchExpertDetailsAndExperience(expert.expert_id);
+              return {
+                id: expert.expert_id,
+                fullName,
+                company,
+                contactDetails,
+                addedAt: expert.created_at,
+                pipelineAddedTime: expert.created_at,
+                publishedAddedTime: expert.created_at,
+                status: expert.status || "Not Available",
+              };
+            })
+          );
+
+          setPipelineExperts(pipelineExpertData);
+          setPublishedExperts(publishedExpertData);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -71,11 +142,12 @@ export default function ProjectExpertsPage() {
     router.push("/projects/experts/add");
   };
 
-  const filteredExperts = experts.filter((expert) =>
-    (expert.fullName && expert.fullName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (expert.company && expert.company.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-  
+  const filteredExperts = (experts: Expert[]) => {
+    return experts.filter((expert) =>
+      (expert.fullName && expert.fullName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (expert.company && expert.company.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -121,18 +193,16 @@ export default function ProjectExpertsPage() {
                   <TableHead>Expert</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Contact details</TableHead>
-                  <TableHead>Added by</TableHead>
                   <TableHead>Added time</TableHead>
                   {activeTab === "published" && <TableHead>Status</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredExperts.map((expert) => (
-                  <TableRow key={expert.id} className="hover:bg-gray-50">
+                {(activeTab === "pipeline" ? pipelineExperts : publishedExperts).map((expert) => (
+                  <TableRow key={`${expert.id}-${expert.addedAt}`} className="hover:bg-gray-50">
                     <TableCell className="font-medium">{expert.fullName}</TableCell>
                     <TableCell>{expert.company}</TableCell>
                     <TableCell>{expert.contactDetails}</TableCell>
-                    <TableCell>{expert.addedBy}</TableCell>
                     <TableCell>{expert.addedAt}</TableCell>
                     {activeTab === "published" && <TableCell><Badge>{expert.status}</Badge></TableCell>}
                   </TableRow>

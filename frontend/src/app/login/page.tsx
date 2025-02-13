@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
-import API from "@/services/api"; // Sesuaikan path jika perlu
+import API from "@/services/api"; // Adjust path if needed
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,10 +17,11 @@ export default function LoginPage() {
   const [csrfToken, setCsrfToken] = useState("");
   const router = useRouter();
 
-  // Fungsi untuk mengambil CSRF token sebelum login
+  // Function to fetch CSRF token
   const fetchCsrfToken = async () => {
     try {
-      await API.get("/api/csrf/"); // Django akan mengirimkan CSRF token dalam cookie
+      const response = await API.get("/api/csrf/");
+      setCsrfToken(response.data.csrfToken); 
     } catch (err) {
       console.error("Failed to fetch CSRF token:", err);
     }
@@ -32,7 +33,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError(""); // Reset the error message
 
     try {
       const response = await API.post(
@@ -41,14 +42,14 @@ export default function LoginPage() {
         {
           headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken, // Kirim CSRF token jika diperlukan
+            "X-CSRFToken": csrfToken, // Send the CSRF token in the headers
           },
-          withCredentials: true, // Penting untuk session authentication
+          withCredentials: true, // Make sure to send cookies for session management
         }
       );
 
       if (response.status === 200) {
-        router.push("/projects"); // Redirect setelah login berhasil
+        router.push("/projects"); // Redirect to the projects page after successful login
       }
     } catch (err) {
       setError("Invalid email or password. Please try again.");

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Nav } from "@/components/nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, FileText, Users, AlertCircle, Download } from "lucide-react"
+import { Calendar, FileText, Users, Download, ArrowLeft, Settings } from "lucide-react"
 import API from "@/services/api"
 
 interface Project {
@@ -21,7 +21,6 @@ interface Project {
   client_requirements: string
   created_at: string
   geography: string
-  companies_of_interest: string[]
   general_screening_questions: string
   files: { name: string; url: string }[]
 }
@@ -92,34 +91,25 @@ export default function ProjectDetailPage() {
         </Card>
       </div>
 
-      <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Companies of Interest</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="list-disc pl-5 space-y-1">
-              {project.companies_of_interest?.length ? (
-                project.companies_of_interest.map((company, index) => <li key={index}>{company}</li>)
-              ) : (
-                <p>No companies listed.</p>
-              )}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Client Requirements</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="font-medium">
+              We are seeking to interview an individual who has experience in the shrimp industry, more specifically:
+            </p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Hands on experience in conducting exports of shrimp from shrimp producing country(s)</li>
+              <li>Hands on experience in negotiating contract and price with vendors in the importing country</li>
+              <li>Knowledge of value chain of shrimps from farm to processing plant to exporting</li>
+              <li>English/Bahasa speaking</li>
+              <li>Company names: Camimex group</li>
             </ul>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Client Requirements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-              <p>{project.client_requirements || "No requirements provided."}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mt-8">
         <CardHeader>
@@ -149,23 +139,26 @@ export default function ProjectDetailPage() {
           <CardTitle>Files</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {project.files?.length ? (
               project.files.map((file) => (
-                <li key={file.name}>
-                  <Button variant="outline" asChild className="w-full justify-start">
-                    <Link href={file.url} download>
-                      <FileText className="mr-2 h-4 w-4" />
-                      {file.name}
-                      <Download className="ml-auto h-4 w-4" />
-                    </Link>
-                  </Button>
-                </li>
+                <Button
+                  key={file.name}
+                  variant="outline"
+                  asChild
+                  className="h-auto py-2 px-3 flex items-center justify-start"
+                >
+                  <Link href={file.url} download>
+                    <FileText className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{file.name}</span>
+                    <Download className="ml-auto h-4 w-4 flex-shrink-0" />
+                  </Link>
+                </Button>
               ))
             ) : (
-              <p>No files available.</p>
+              <p className="text-muted-foreground col-span-full">No files available.</p>
             )}
-          </ul>
+          </div>
         </CardContent>
       </Card>
     </>
@@ -178,36 +171,66 @@ export default function ProjectDetailPage() {
       </div>
 
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex gap-4">
-            <Button
-              variant={activeTab === "overview" ? "default" : "outline"}
-              onClick={() => {
-                setActiveTab("overview")
-                router.push(`/projects/project-detail?id=${id}`)
-              }}
-            >
-              Overview
-            </Button>
-            <Button
-              variant={activeTab === "experts" ? "default" : "outline"}
-              onClick={() => {
-                setActiveTab("experts")
-                router.push(`/projects/project-detail/project-experts?id=${id}`)
-              }}
-            >
-              Experts
-            </Button>
+        <div className="mb-6">
+          <div className="flex gap-[1px]  p-1 rounded-t-lg">
+          <Button
+        variant="ghost"
+        className={`
+          relative group px-4 py-2 h-9 text-sm font-medium rounded-t-md rounded-b-none
+          flex items-center gap-2 min-w-[200px] border-t border-x
+          ${
+            activeTab === "overview"
+              ? "bg-white text-blue-600 border-blue-400"
+              : "bg-blue-50 text-blue-700 border-transparent hover:bg-blue-100"
+          }
+        `}
+        onClick={() => {
+          setActiveTab("overview")
+          router.push(`/projects/project-detail?id=${id}`)
+        }}
+      >
+        <span className="flex-1 text-left">Overview</span>
+        {activeTab === "overview" && (
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600">
+            ×
+          </span>
+        )}
+      </Button>
+      <Button
+        variant="ghost"
+        className={`
+          relative group px-4 py-2 h-9 text-sm font-medium rounded-t-md rounded-b-none
+          flex items-center gap-2 min-w-[200px] border-t border-x
+          ${
+            activeTab === "experts"
+              ? "bg-white text-blue-600 border-blue-400"
+              : "bg-blue-50 text-blue-700 border-transparent hover:bg-blue-100"
+          }
+        `}
+        onClick={() => {
+          setActiveTab("experts")
+          router.push(`/projects/project-detail/project-experts?id=${id}`)
+        }}
+      >
+        <span className="flex-1 text-left">Experts</span>
+        {activeTab === "experts" && (
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600">
+            ×
+          </span>
+        )}
+      </Button>
           </div>
         </div>
 
-        {activeTab === "overview" ? (
-          renderOverview()
-        ) : (
-          <div className="mt-6">
-            <p>Loading experts...</p>
-          </div>
-        )}
+        <div className="bg-white rounded-b-lg rounded-tr-lg shadow-lg p-6">
+          {activeTab === "overview" ? (
+            renderOverview()
+          ) : (
+            <div className="mt-6">
+              <p>Loading experts...</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

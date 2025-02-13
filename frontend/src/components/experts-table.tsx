@@ -7,86 +7,153 @@ import { Button } from "@/components/ui/button"
 import { Download, Briefcase } from 'lucide-react'
 import { ExpertModal } from "./expert-modal"
 import { ProjectSelectModal } from "./project-select-modal"
-import API from "@/services/api" // Adjust with actual API service path
+import API from "@/services/api"
 
-interface Expert {
+export interface Expert {
   id: string
-  title: string
-  company: string
-  dateRange: string
-  lastPublished: string
-  projects: number
-  calls: number
-  isFormer: boolean
+  fullName: string
+  industry: string
+  countryOfResidence: string
+  expertCost: number
   email: string
   phone: string
-  timezone: string
-  location: string
+  isFormer: boolean
+  linkedIn: string
   career: Array<{
     title: string
-    company: string
+    company_name: string
     dateRange: string
   }>
   projects: Array<{
-    name: string
-    status: string
-    rating: number
+    projectId: string
+    projectName: string
   }>
 }
 
 export function ExpertsTable() {
   const [experts, setExperts] = useState<Expert[]>([])
-  const [selectedExperts, setSelectedExperts] = useState<string[]>([])
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null)
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false)
+  const [projects, setProjects] = useState<any[]>([]) 
+  const [loadingProjects, setLoadingProjects] = useState(true)
 
-  // Fetching experts from the API
+  // Fetching expert data, career data, and project data
   useEffect(() => {
-    const fetchExperts = async () => {
+    const fetchExpertsWithDetails = async () => {
       try {
         setLoading(true)
-        const response = await API.get("/api/experts/") // API endpoint to fetch experts
-        setExperts(response.data)
+
+        // Fetch experts data
+        const expertResponse = await API.get("/experts/") 
+        const expertsData = expertResponse.data.map((expert: any) => ({
+          id: expert.expert_id,
+          fullName: expert.full_name,
+          industry: expert.industry,
+          countryOfResidence: expert.country_of_residence,
+          expertCost: expert.expert_cost,
+          email: expert.email,
+          phone: expert.phone_number,
+          linkedIn: expert.linkedIn_profile_link,
+          isFormer: expert.email_confirmed,
+        }))
+
+        // Fetch career data
+        const careerResponse = await API.get("/expert_experiences")
+        const careerData = careerResponse.data
+
+        // Fetch project data
+        const projectsResponse = await API.get("/projects")
+        const projectsData = projectsResponse.data.map((project: any) => ({
+          id: project.project_id,
+          projectName: project.project_name,
+        }));
+
+        // Fetch pipeline and published projects
+        const pipelineResponse = await API.get("/project_pipeline")
+        const pipelineData = pipelineResponse.data.map((projectPipeline: any) => ({
+          expertId: projectPipeline.expert_id,
+          projectId: projectPipeline.project_id,
+        }));
+
+        const publishedResponse = await API.get("/project_published")
+        const publishedData = publishedResponse.data.map((projectPublished: any) => ({
+          expertId: projectPublished.expert_id,
+          projectId: projectPublished.project_id,
+        }));
+
+        // Merge project data with expert data (both pipeline and published)
+        const expertsWithDetails = expertsData.map((expert: any) => {
+          const expertCareer = careerData.filter((career: any) => career.expert_id === expert.id)
+
+          // Directly linking project ids to experts from pipeline and published projects
+          const expertPipelineProjects = pipelineData.filter((pipeline: any) => pipeline.expertId === expert.id)
+            .map((pipeline: any) => {
+              return projectsData.find((project: any) => project.id === pipeline.projectId)
+            }).filter(Boolean)
+
+          const expertPublishedProjects = publishedData.filter((published: any) => published.expertId === expert.id)
+            .map((published: any) => {
+              return projectsData.find((project: any) => project.id === published.projectId)
+            }).filter(Boolean)
+
+          return {
+            ...expert,
+            career: expertCareer, // Contains company_name and title
+            projects: [...expertPipelineProjects, ...expertPublishedProjects],
+          }
+        })
+
+        setExperts(expertsWithDetails) // Set the experts data with career and project information
       } catch (error) {
-        console.error("Error fetching experts:", error)
+        console.error("Error fetching experts with details:", error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchExperts()
+    fetchExpertsWithDetails()
   }, [])
 
-  const handleCheckboxChange = (id: string) => {
-    setSelectedExperts((prev) =>
-      prev.includes(id) ? prev.filter((expertId) => expertId !== id) : [...prev, id]
-    )
-  }
+  // Fetch projects when modal is opened
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await API.get("http://127.0.0.1:8000/projects/")
+        setProjects(response.data)
+      } catch (error) {
+        console.error("Error fetching projects:", error)
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
+
+    if (isProjectModalOpen) {
+      fetchProjects()
+    }
+  }, [isProjectModalOpen])
 
   const handleExpertClick = (expert: Expert) => {
     setSelectedExpert(expert)
   }
 
-  const handleDownloadExperts = () => {
-    const data = JSON.stringify(
-      experts.filter((expert) => selectedExperts.includes(expert.id)),
-      null,
-      2
-    )
-    const blob = new Blob([data], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "experts.json"
-    a.click()
-    URL.revokeObjectURL(url)
+  const handleAddToProject = () => {
+    setIsProjectModalOpen(true)
   }
 
-  const handleProjectSelect = (projectId: string) => {
-    console.log("Selected project:", projectId)
-    console.log("Selected experts:", selectedExperts)
-    setIsProjectModalOpen(false)
+  const handleProjectSelect = async (projectId: string) => {
+    if (selectedExpert) {
+      try {
+        const response = await API.post("http://127.0.0.1:8000/project_pipeline/", {
+          expert_id: selectedExpert.id,
+          project_id: projectId,
+        })
+        console.log("Expert added to project:", response.data)
+        setIsProjectModalOpen(false)
+      } catch (error) {
+        console.error("Error adding expert to project:", error)
+      }
+    }
   }
 
   if (loading) {
@@ -100,11 +167,10 @@ export function ExpertsTable() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[30px]"></TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Last published</TableHead>
-              <TableHead className="text-center">Projects</TableHead>
-              <TableHead className="text-center">Calls</TableHead>
+              <TableHead>Expert</TableHead>
+              <TableHead>Industry</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Cost</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -112,14 +178,12 @@ export function ExpertsTable() {
               <TableRow
                 key={expert.id}
                 className="cursor-pointer transition-colors hover:bg-secondary/10"
-                onClick={() => handleExpertClick(expert)}
+                onClick={() => handleExpertClick(expert)} // Select expert on click
               >
-                <TableCell onClick={(e) => e.stopPropagation()}>
+                <TableCell>
                   <input
                     type="checkbox"
                     className="rounded border-gray-300 text-primary transition-colors hover:border-primary focus:ring-primary focus:ring-offset-0"
-                    checked={selectedExperts.includes(expert.id)}
-                    onChange={() => handleCheckboxChange(expert.id)}
                   />
                 </TableCell>
                 <TableCell>
@@ -133,58 +197,32 @@ export function ExpertsTable() {
                       </Badge>
                     )}
                     <span className="transition-colors group-hover:text-primary">
-                      {expert.title}
+                      {expert.fullName}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <div>{expert.company}</div>
-                    <div className="text-sm text-muted-foreground">{expert.dateRange}</div>
-                  </div>
-                </TableCell>
-                <TableCell>{expert.lastPublished}</TableCell>
-                <TableCell className="text-center">{expert.projects.length}</TableCell>
-                <TableCell className="text-center">{expert.calls}</TableCell>
+                <TableCell>{expert.industry}</TableCell>
+                <TableCell>{expert.countryOfResidence}</TableCell>
+                <TableCell>{expert.expertCost}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
 
-      {selectedExperts.length > 0 && (
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={handleDownloadExperts}
-            className="transition-all hover:bg-secondary/10 hover:text-primary hover:border-primary"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download Experts
-          </Button>
-          <Button 
-            className="transition-all hover:bg-primary-dark hover:shadow-md"
-            onClick={() => setIsProjectModalOpen(true)}
-          >
-            <Briefcase className="mr-2 h-4 w-4" />
-            Add to Project
-          </Button>
-        </div>
-      )}
-
       <ExpertModal
         expert={selectedExpert}
         isOpen={selectedExpert !== null}
         onClose={() => setSelectedExpert(null)}
-        onAddToProject={() => {
-          setSelectedExpert(null)
-          setIsProjectModalOpen(true)
-        }}
+        onAddToProject={handleAddToProject}
+        pipeline={selectedExpert ? selectedExpert.projects.filter((project) => project.projectName.includes('pipeline')).map((project) => project.projectName) : []}
+        published={selectedExpert ? selectedExpert.projects.filter((project) => project.projectName.includes('published')).map((project) => project.projectName) : []}
+        projects={selectedExpert ? selectedExpert.projects.map((project) => project.projectName) : []}
       />
 
       <ProjectSelectModal
         isOpen={isProjectModalOpen}
-        onClose={() => setIsProjectModalOpen(false)}
+        onClose={() => setIsProjectModalOpen(false)} // Close the project modal
         onSelect={handleProjectSelect}
       />
     </div>
