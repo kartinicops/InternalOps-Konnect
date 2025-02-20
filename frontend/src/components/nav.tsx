@@ -2,10 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/page"
 import { Button } from "@/components/ui/button"
-import { LogIn, UserPlus, Menu } from 'lucide-react'
-
+import { LogIn, UserCircle, Menu } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface NavProps {
@@ -15,6 +15,14 @@ interface NavProps {
 
 export function Nav({ isProjectDetail = false, projectName }: NavProps) {
   const pathname = usePathname()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token")
+    setIsLoggedIn(!!token)
+  }, [])
+
+  const showProfileButton = pathname !== "/login"
 
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-blue-200 bg-blue-50">
@@ -62,10 +70,10 @@ export function Nav({ isProjectDetail = false, projectName }: NavProps) {
               </Button>
               <Button
                 asChild
-                variant="outline"
+                variant="link"
                 className={cn(
-                  "border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800",
-                  pathname === "/send-email" && "bg-blue-100 text-blue-800",
+                  "text-blue-600 hover:text-blue-800",
+                  pathname === "/experts" && "font-semibold text-blue-800",
                 )}
               >
                 <Link href="/send-email">Send Email</Link>
@@ -73,6 +81,7 @@ export function Nav({ isProjectDetail = false, projectName }: NavProps) {
             </div>
           )}
         </div>
+        
 
         <div className="flex items-center space-x-4">
           <DropdownMenu>
@@ -80,7 +89,7 @@ export function Nav({ isProjectDetail = false, projectName }: NavProps) {
               <Button
                 variant="outline"
                 size="icon"
-                className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800 md:hidden"
+                className="rounded-full border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800 md:hidden"
               >
                 <Menu className="h-4 w-4" />
                 <span className="sr-only">Toggle menu</span>
@@ -95,37 +104,47 @@ export function Nav({ isProjectDetail = false, projectName }: NavProps) {
                   <DropdownMenuItem asChild className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
                     <Link href="/experts">Experts</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
-                    <Link href="/login">Login</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
-                    <Link href="/register">Register</Link>
-                  </DropdownMenuItem>
+                  {showProfileButton ? (
+                    <DropdownMenuItem asChild className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
+                      <Link href="/profile">Profile</Link>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem asChild className="text-blue-700 hover:bg-blue-100 hover:text-blue-800">
+                      <Link href="/login">Login</Link>
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {!isProjectDetail && (
-            <div className="hidden items-center space-x-4 sm:flex">
+          <div className="hidden items-center space-x-4 sm:flex">
+            {showProfileButton ? (
               <Button
                 asChild
                 variant="outline"
-                className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                size="icon"
+                className="rounded-full border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+              >
+                <Link href="/profile">
+                  <UserCircle className="h-5 w-5" />
+                  <span className="sr-only">Profile</span>
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                asChild
+                variant="outline"
+                size="icon"
+                className="rounded-full border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
               >
                 <Link href="/login">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Login
+                  <LogIn className="h-5 w-5" />
+                  <span className="sr-only">Login</span>
                 </Link>
               </Button>
-              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700">
-                <Link href="/register">
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Register
-                </Link>
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </nav>

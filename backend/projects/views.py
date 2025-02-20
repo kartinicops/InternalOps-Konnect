@@ -10,6 +10,10 @@ from .models import geographies
 from .models import Project_files
 from .models import Client_members
 from .models import Client_teams
+from .models import Project_pipelines
+from .models import Project_published
+from .models import Project_with_experts
+from .models import Published_statuses
 from .serializers import ProjectsSerializer
 from .serializers import ClientCompaniesSerializer
 from .serializers import GeographiesSerializer
@@ -17,16 +21,10 @@ from .serializers import ProjectFileSerializer
 from rest_framework import viewsets
 from .serializers import ClientMembersSerializer
 from .serializers import ClientTeamsSerializer
-from .models import Project_pipelines
-from .models import Project_published
 from .serializers import ProjectPipelineSerializer
 from .serializers import ProjectPublishedSerializer
-from .models import Project_with_experts
 from .serializers import ProjectExpertsSerializer
-from .models import Published_statuses
 from .serializers import PublishedStatusSerializer
-
-
 
 # Create your views here.
 class ProjectViewSet(viewsets.ModelViewSet): #being a subclass of viewsets.ModelViewSet enable GET, POST, PUT, PATCH, DELETE
@@ -61,30 +59,32 @@ class GeographiesViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     serializer_class = GeographiesSerializer
     #http_method_names = ['get', 'post', 'patch']  # limitation to allow only GET, POST, and PATCH
 
-class ProjectFilesViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
-    # Specify the queryset to retrieve objects
+from rest_framework.parsers import MultiPartParser, FormParser
+
+class ProjectFilesViewSet(viewsets.ModelViewSet):
     queryset = Project_files.objects.all()
-    # Specify which serializer to use
     serializer_class = ProjectFileSerializer
-    
+    parser_classes = (MultiPartParser, FormParser)  # Penting untuk upload file
+
+
 class ProjectPipelinesViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     # Specify the queryset to retrieve objects
     queryset = Project_pipelines.objects.all()
     # Specify which serializer to use
     serializer_class = ProjectPipelineSerializer
+
 class ProjectPublishedViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     # Specify the queryset to retrieve objects
     queryset = Project_published.objects.all()
     # Specify which serializer to use
     serializer_class = ProjectPublishedSerializer
-    
+
 class PublishStatusViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     # Specify the queryset to retrieve objects
     queryset =Published_statuses.objects.all()
     # Specify which serializer to use
     serializer_class = PublishedStatusSerializer
-    
-    
+
 class ProjectExpertsViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     # Specify the queryset to retrieve objects
     queryset = Project_with_experts.objects.all()

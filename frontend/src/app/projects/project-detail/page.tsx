@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Nav } from "@/components/nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, FileText, Users, Download, ArrowLeft, Settings } from "lucide-react"
+import { Calendar, FileText, Users, Download } from "lucide-react"
 import API from "@/services/api"
 
 interface Project {
@@ -33,23 +33,25 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "experts">("overview")
 
-  useEffect(() => {
-    if (!id) return
+    useEffect(() => {
+      if (!id) return
 
-    const fetchProject = async () => {
-      try {
-        await API.get("/api/csrf/")
-        const response = await API.get(`/projects/${id}/`, { withCredentials: true })
-        setProject(response.data)
-      } catch (error) {
-        console.error("Error fetching project:", error)
-      } finally {
-        setLoading(false)
+      const fetchProject = async () => {
+        try {
+          await API.get("/api/csrf/") // Ensure CSRF token is fetched
+          const response = await API.get(`/projects/${id}/`, { withCredentials: true })
+          setProject(response.data)
+
+    
+        } catch (error) {
+          console.error("Error fetching project:", error)
+        } finally {
+          setLoading(false)
+        }
       }
-    }
 
-    fetchProject()
-  }, [id])
+      fetchProject()
+    }, [id])
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading project details...</div>
@@ -61,14 +63,16 @@ export default function ProjectDetailPage() {
 
   const renderOverview = () => (
     <>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 ">
             <CardTitle className="text-sm font-medium">Status</CardTitle>
-            <Badge variant={project.status === "active" ? "default" : "secondary"}>{project.status}</Badge>
-          </CardHeader>
+            <Badge variant={project.status ? "secondary" : "default"}>
+              {project.status ? "Closed" : "Active"}
+            </Badge>
+            </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{project.status}</div>
+          <div className="text-2xl font-bold">{project.status ? "Closed" : "Active"}</div>
           </CardContent>
         </Card>
         <Card>
@@ -172,64 +176,34 @@ export default function ProjectDetailPage() {
 
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <div className="flex gap-[1px]  p-1 rounded-t-lg">
-          <Button
-        variant="ghost"
-        className={`
-          relative group px-4 py-2 h-9 text-sm font-medium rounded-t-md rounded-b-none
-          flex items-center gap-2 min-w-[200px] border-t border-x
-          ${
-            activeTab === "overview"
-              ? "bg-white text-blue-600 border-blue-400"
-              : "bg-blue-50 text-blue-700 border-transparent hover:bg-blue-100"
-          }
-        `}
-        onClick={() => {
-          setActiveTab("overview")
-          router.push(`/projects/project-detail?id=${id}`)
-        }}
-      >
-        <span className="flex-1 text-left">Overview</span>
-        {activeTab === "overview" && (
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600">
-            ×
-          </span>
-        )}
-      </Button>
-      <Button
-        variant="ghost"
-        className={`
-          relative group px-4 py-2 h-9 text-sm font-medium rounded-t-md rounded-b-none
-          flex items-center gap-2 min-w-[200px] border-t border-x
-          ${
-            activeTab === "experts"
-              ? "bg-white text-blue-600 border-blue-400"
-              : "bg-blue-50 text-blue-700 border-transparent hover:bg-blue-100"
-          }
-        `}
-        onClick={() => {
-          setActiveTab("experts")
-          router.push(`/projects/project-detail/project-experts?id=${id}`)
-        }}
-      >
-        <span className="flex-1 text-left">Experts</span>
-        {activeTab === "experts" && (
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600">
-            ×
-          </span>
-        )}
-      </Button>
+          <div className="flex gap-[1px] p-1 rounded-t-lg">
+            <Button
+              variant="ghost"
+              className={`relative group px-4 py-2 h-9 text-sm font-medium rounded-t-md rounded-b-none
+                ${activeTab === "overview" ? "bg-white text-blue-600 border-blue-400" : "bg-blue-50 text-blue-700 border-transparent hover:bg-blue-100"}`}
+              onClick={() => {
+                setActiveTab("overview")
+                router.push(`/projects/project-detail?id=${id}`)
+              }}
+            >
+              Overview
+            </Button>
+            <Button
+              variant="ghost"
+              className={`relative group px-4 py-2 h-9 text-sm font-medium rounded-t-md rounded-b-none
+                ${activeTab === "experts" ? "bg-white text-blue-600 border-blue-400" : "bg-blue-50 text-blue-700 border-transparent hover:bg-blue-100"}`}
+              onClick={() => {
+                setActiveTab("experts")
+                router.push(`/projects/project-detail/project-experts?id=${id}`)
+              }}
+            >
+              Experts
+            </Button>
           </div>
         </div>
 
         <div className="bg-white rounded-b-lg rounded-tr-lg shadow-lg p-6">
-          {activeTab === "overview" ? (
-            renderOverview()
-          ) : (
-            <div className="mt-6">
-              <p>Loading experts...</p>
-            </div>
-          )}
+          {activeTab === "overview" ? renderOverview() : <div className="mt-6"><p>Loading experts...</p></div>}
         </div>
       </div>
     </div>

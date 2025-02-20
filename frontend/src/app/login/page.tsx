@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,27 +14,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [csrfToken, setCsrfToken] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams(); // Get query params
 
-  // Function to fetch CSRF token
-  const fetchCsrfToken = async () => {
-    try {
-      const response = await API.get("/api/csrf/");
-      setCsrfToken(response.data.csrfToken); 
-    } catch (err) {
-      console.error("Failed to fetch CSRF token:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchCsrfToken();
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); // Reset the error message
-
+    setError(""); // Reset error message
+  
+    const csrfToken = document.cookie
+      .split("; ")
+      .find(row => row.startsWith("csrftoken="))
+      ?.split("=")[1];
+  
     try {
       const response = await API.post(
         "/api/login/",
@@ -42,19 +34,28 @@ export default function LoginPage() {
         {
           headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken, // Send the CSRF token in the headers
+            "X-CSRFToken": csrfToken, // Include CSRF token in the headers
           },
-          withCredentials: true, // Make sure to send cookies for session management
+          withCredentials: true, // Make sure cookies are sent with the request
         }
       );
-
+  
       if (response.status === 200) {
-        router.push("/projects"); // Redirect to the projects page after successful login
+        const { token, is_staff } = response.data; // Anggap bahwa token diterima dalam response
+        localStorage.setItem("auth_token", token); // Menyimpan token di localStorage
+  
+        const nextPage = searchParams.get("next") || (is_staff ? "/admin-dashboard" : "/projects");
+        router.replace(nextPage); // Redirect user setelah login sukses
       }
-    } catch (err) {
-      setError("Invalid email or password. Please try again.");
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Invalid email or password. Please try again.");
+      setPassword(""); // Reset password input untuk keamanan
     }
   };
+  
+  
+  
+  
 
   return (
     <div className="min-h-screen bg-gray-100">
