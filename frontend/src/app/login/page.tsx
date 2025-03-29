@@ -1,6 +1,5 @@
-"use client";
-
-import { useState } from "react";
+'use client'
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,54 +7,130 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
-import API from "@/services/api"; // Adjust path if needed
+import API from "@/services/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
-  const searchParams = useSearchParams(); // Get query params
+  const searchParams = useSearchParams();
 
+  // Improved CSRF token retrieval
+  const getCsrfToken = () => {
+    return document.cookie
+      .split('; ')
+      .find(row => row.startsWith('csrftoken='))
+      ?.split('=')[1];
+  };
 
+  // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); // Reset error message
-  
-    const csrfToken = document.cookie
-      .split("; ")
-      .find(row => row.startsWith("csrftoken="))
-      ?.split("=")[1];
-  
+    setError("");
+
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) {
+      setError("CSRF token is missing. Please refresh the page.");
+      return;
+    }
+
     try {
-      const response = await API.post(
-        "/api/login/",
-        { email, password },
+      const response = await API.post("/api/login/", 
+        { 
+          email, 
+          password 
+        },
         {
           headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken, // Include CSRF token in the headers
+            "X-CSRFToken": csrfToken,
           },
-          withCredentials: true, // Make sure cookies are sent with the request
+          withCredentials: true,
         }
       );
-  
+
       if (response.status === 200) {
-        const { token, is_staff } = response.data; // Anggap bahwa token diterima dalam response
-        localStorage.setItem("auth_token", token); // Menyimpan token di localStorage
-  
-        const nextPage = searchParams.get("next") || (is_staff ? "/admin-dashboard" : "/projects");
-        router.replace(nextPage); // Redirect user setelah login sukses
+        // Store authentication information more securely
+        const { token, user } = response.data;
+        
+        // Use sessionStorage for more secure token storage
+        sessionStorage.setItem("auth_token", token);
+        sessionStorage.setItem("user_info", JSON.stringify(user));
+        
+        // Set a flag to indicate the user is authenticated
+        localStorage.setItem("is_authenticated", "true");
+
+        // Redirect to the intended page or default to profile
+        const nextPage = searchParams.get("next") || "/profile";
+        router.replace(nextPage);
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Invalid email or password. Please try again.");
-      setPassword(""); // Reset password input untuk keamanan
+      // More detailed error handling
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        setError(err.response.data.detail || "Login failed. Please check your credentials.");
+      } else if (err.request) {
+        // The request was made but no response was received
+        setError("No response from server. Please check your internet connection.");
+      } else {
+        // Something happened in setting up the request
+        setError("An unexpected error occurred. Please try again.");
+      }
+      setPassword("");
     }
   };
-  
-  
-  
-  
+
+  // Logout function (can be used globally)
+  const handleLogout = async () => {
+    try {
+      const csrfToken = getCsrfToken();
+      
+      await API.post("/api/logout/", 
+        {},
+        {
+          headers: {
+            "X-CSRFToken": csrfToken,
+          },
+          withCredentials: true,
+        }
+      );
+
+      // Clear all authentication-related storage
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.removeItem("user_info");
+      localStorage.removeItem("is_authenticated");
+
+      // Redirect to login page
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout failed", error);
+      // Even if logout API call fails, clear local storage
+      sessionStorage.clear();
+      localStorage.removeItem("is_authenticated");
+      router.push("/login");
+    }
+  };
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    const checkAuthStatus = () => {
+      const isAuthenticated = localStorage.getItem("is_authenticated") === "true";
+      const authToken = sessionStorage.getItem("auth_token");
+
+      if (isAuthenticated && authToken) {
+        // Optional: Validate token with backend
+        // You might want to add an endpoint to validate the token
+        return true;
+      }
+      return false;
+    };
+
+    // If already authenticated, redirect to profile
+    if (checkAuthStatus()) {
+      router.replace("/profile");
+    }
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gray-100">

@@ -1,76 +1,69 @@
-'use client'
+// components/ui/calendar.tsx
+"use client";
 
-import React, { useState } from "react"
-import { DayPicker } from "react-day-picker"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import "react-day-picker/dist/style.css" // Import DayPicker styles
+import * as React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DayPicker, DropdownProps } from "react-day-picker";
+import { format, addMonths, subMonths } from "date-fns";
 
-export function Calendar() {
-  const [month, setMonth] = useState(new Date())
+import "react-day-picker/dist/style.css";
 
-  const handlePrevMonth = () => {
-    setMonth(new Date(month.getFullYear(), month.getMonth() - 1))
-  }
+export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-  const handleNextMonth = () => {
-    setMonth(new Date(month.getFullYear(), month.getMonth() + 1))
-  }
+export function Calendar({
+  className,
+  classNames,
+  showOutsideDays = true,
+  ...props
+}: CalendarProps) {
+  const [month, setMonth] = React.useState<Date>(props.month || new Date());
 
   return (
-    <div className="relative p-6 border rounded-lg shadow-md bg-gradient-to-b from-white to-gray-100 max-w-md mx-auto">
-      {/* Header Navigation */}
-      <div className="flex items-center justify-between mb-4">
+    <div className="p-3">
+      <div className="flex items-center justify-between mb-2">
         <button
-          onClick={handlePrevMonth}
-          className="h-10 w-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all"
+          onClick={() => setMonth(subMonths(month, 1))}
+          className="p-1.5 rounded-full hover:bg-gray-100 text-gray-600"
         >
-          <ChevronLeft className="h-5 w-5 text-gray-600" />
+          <ChevronLeft className="h-4 w-4" />
         </button>
-        <h2 className="text-xl font-semibold text-gray-800">
-          {month.toLocaleString("default", { month: "long", year: "numeric" })}
+        <h2 className="font-medium text-gray-800">
+          {format(month, "MMMM yyyy")}
         </h2>
         <button
-          onClick={handleNextMonth}
-          className="h-10 w-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all"
+          onClick={() => setMonth(addMonths(month, 1))}
+          className="p-1.5 rounded-full hover:bg-gray-100 text-gray-600"
         >
-          <ChevronRight className="h-5 w-5 text-gray-600" />
+          <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-
-      {/* DayPicker */}
+      
       <DayPicker
         month={month}
         onMonthChange={setMonth}
-        showOutsideDays={true}
-        className="p-3"
+        className="p-0"
         classNames={{
-          months: "flex flex-col space-y-4",
+          months: "flex flex-col",
           month: "space-y-2",
-          table: "w-full border-collapse text-center",
-          head_row: "grid grid-cols-7 text-gray-700",
-          head_cell:
-            "text-sm font-semibold uppercase tracking-wider pb-2 text-gray-600",
-          row: "grid grid-cols-7 gap-1",
-          cell: "text-center relative w-full aspect-square",
-          day: "h-full w-full text-sm rounded-lg hover:bg-blue-100 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all",
-          day_selected:
-            "bg-blue-500 text-white font-bold shadow-lg hover:bg-blue-600",
-          day_today:
-            "bg-blue-100 text-blue-900 font-semibold border border-blue-400",
-          day_outside: "text-gray-400 opacity-50",
-          day_disabled: "text-gray-400 opacity-30",
-          day_circularHighlight:
-            "bg-yellow-400 text-white rounded-full shadow-md", // Custom class for circular highlight
+          caption: "flex justify-center relative items-center",
+          caption_label: "hidden", // Custom caption
+          nav: "hidden", // Custom nav
+          table: "w-full border-collapse",
+          head_row: "flex w-full",
+          head_cell: "text-xs font-medium text-gray-500 w-9 m-0 p-0 text-center",
+          row: "flex w-full mt-1",
+          cell: "text-center text-sm relative p-0 m-0",
+          day: "h-9 w-9 p-0 flex items-center justify-center rounded-full hover:bg-blue-50 mx-auto",
+          day_today: "bg-blue-50 font-medium text-blue-600",
+          day_selected: "bg-blue-500 text-white hover:bg-blue-600 font-medium",
+          day_disabled: "text-gray-300 hover:bg-transparent",
+          day_outside: "text-gray-300 opacity-50",
+          day_range_middle: "bg-blue-50",
+          day_hidden: "invisible",
+          ...classNames,
         }}
-        modifiers={{
-          selected: new Date(),
-          specialDays: [
-            new Date(2019, 1, 8),
-            new Date(2019, 1, 17),
-            new Date(2019, 1, 25),
-          ],
-        }}
+        {...props}
       />
     </div>
-  )
+  );
 }

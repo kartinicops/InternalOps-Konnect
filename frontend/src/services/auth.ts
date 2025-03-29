@@ -1,37 +1,25 @@
-export async function register(formData: any) {
-    const response = await fetch("http://127.0.0.1:8000/api-auth/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    });
-  
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw errorData;
-    }
-  
-    return response.json();
+import { api } from "./api";
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+}
+
+export const login = async (username: string, password: string): Promise<User> => {
+  const response = await api.post("/login", { username, password });
+  return response.data;
+};
+
+export const logout = async (): Promise<void> => {
+  await api.post("/logout");
+};
+
+export const getSession = async (): Promise<User | null> => {
+  try {
+    const response = await api.get("/me");
+    return response.data;
+  } catch (error) {
+    return null;
   }
-  
-  
-  export async function login(credentials: { email: string; password: string }) {
-    const response = await fetch("http://127.0.0.1:8000/api/login/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(credentials),
-    });
-  
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw errorData;
-    }
-  
-    const data = await response.json();
-    localStorage.setItem("token", data.token); // Simpan token untuk sesi
-    return data;
-  }
-  
+};

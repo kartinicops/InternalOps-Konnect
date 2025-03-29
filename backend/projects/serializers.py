@@ -11,19 +11,31 @@ from .models import Project_pipelines
 from .models import Project_published
 from .models import Project_with_experts
 from .models import Published_statuses
+from .models import Questions
+from .models import Answers
 
 
 #serializers pack and unpack data into JSON
 class ProjectsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Projects
-        fields = ["project_id", "project_name", "user_id", "status", "client_company_id", "geography_id", "timeline_start", "timeline_end", "expected_calls", "completed_calls", "general_screening_questions", "client_requirements", "created_at"]
-        
+        fields = ["project_id", "project_name", "user_id", "status", "client_company_id", "geography_id", "timeline_start", "timeline_end", "expected_calls", "completed_calls", "client_requirements", "created_at"]        
         
 class ProjectPipelineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project_pipelines
-        fields = ["project_pipeline_id", "expert_id", "project_id", "user_id", "created_at"]        
+        fields = ["project_pipeline_id", "expert_id", "project_id", "user_id", "created_at"]   
+        
+class QuestionsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Questions
+        fields = ["question_id", "project_id", "question"]
+
+class AnswersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Answers
+        fields = ["answer_id", "question_id", "expert_id", "answer"]
+     
 class ProjectExpertsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project_with_experts
@@ -33,7 +45,7 @@ class ProjectExpertsSerializer(serializers.ModelSerializer):
 class ProjectPublishedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project_published
-        fields = ["project_publish_id", "expert_id", "project_id", "user_id", "status_id", "angles", "created_at"]
+        fields = ["project_publish_id", "expert_id", "project_id", "user_id", "status_id", "expert_availability", "angles", "created_at"]        
 class PublishedStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Published_statuses

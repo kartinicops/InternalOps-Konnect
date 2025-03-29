@@ -25,6 +25,13 @@ from .serializers import ProjectPipelineSerializer
 from .serializers import ProjectPublishedSerializer
 from .serializers import ProjectExpertsSerializer
 from .serializers import PublishedStatusSerializer
+from .models import Questions
+from .models import Answers
+from .serializers import QuestionsSerializer
+from .serializers import AnswersSerializer
+from .models import companiesOfInterest
+from .serializers import CompaniesOfInterestSerializer
+
 
 # Create your views here.
 class ProjectViewSet(viewsets.ModelViewSet): #being a subclass of viewsets.ModelViewSet enable GET, POST, PUT, PATCH, DELETE
@@ -33,6 +40,18 @@ class ProjectViewSet(viewsets.ModelViewSet): #being a subclass of viewsets.Model
     # Specify which serializer to use
     serializer_class = ProjectsSerializer
     #http_method_names = ['get', 'post', 'patch']  # Allow only GET, POST, and PATCH
+
+class QuestionViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
+    # Specify the queryset to retrieve objects
+    queryset = Questions.objects.all()
+    # Specify which serializer to use
+    serializer_class = QuestionsSerializer
+
+class AnswerViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
+    # Specify the queryset to retrieve objects
+    queryset = Answers.objects.all()
+    # Specify which serializer to use
+    serializer_class = AnswersSerializer
 
 class ClientCompaniesViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
     # Specify the queryset to retrieve objects
@@ -90,3 +109,9 @@ class ProjectExpertsViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELE
     queryset = Project_with_experts.objects.all()
     # Specify which serializer to use
     serializer_class = ProjectExpertsSerializer
+    
+class CompaniesOfInterestViewSet(viewsets.ModelViewSet): #GET, POST, PUT, PATCH, DELETE
+    # Specify the queryset to retrieve objects
+    queryset = companiesOfInterest.objects.all()
+    # Specify which serializer to use
+    serializer_class = CompaniesOfInterestSerializer

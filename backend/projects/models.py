@@ -49,7 +49,7 @@ class Projects(models.Model):
     timeline_end = models.DateField(null=False)
     expected_calls = models.IntegerField(null=False)
     completed_calls = models.IntegerField(null=False, default=0)
-    general_screening_questions = models.TextField(null=True)
+    # general_screening_questions = models.TextField(null=True)
     client_requirements = models.TextField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)  # This will automatically store the creation timestamp
 
@@ -65,6 +65,31 @@ class Projects(models.Model):
         end_display = self.timeline_end.strftime('%d-%m-%Y') 
         #return f"{start_display} to {end_display}"
         return f"{self.project_name}"
+    
+class Questions(models.Model):
+    question_id = models.AutoField(primary_key=True, null=False)
+    project_id = models.ForeignKey(Projects,on_delete=models.CASCADE, null=True, related_name="screeningQuestion")
+    question = models.TextField(null=False)
+
+    class Meta:
+        db_table = "screening_questions"
+
+    def __str__(self):
+        return f"{self.question}"
+
+class Answers(models.Model):
+    answer_id = models.AutoField(primary_key=True, null=False)
+    question_id = models.ForeignKey(Questions,on_delete=models.CASCADE, null=True, related_name="questionAnswer")
+    expert_id = models.ForeignKey(Experts,on_delete=models.CASCADE, null=True, related_name="questionAnswer")
+    answer = models.TextField(null=False)
+
+    class Meta:
+        db_table = "answers"
+
+    def __str__(self):
+        return f"{self.answer}"
+
+
 
 class companiesOfInterest(models.Model):
     company_of_interest_id = models.AutoField(primary_key=True, null=False)
@@ -149,7 +174,8 @@ class Project_published(models.Model):
     expert_id = models.ForeignKey(Experts,on_delete=models.SET_NULL, null=True, related_name="project_publish")
     project_id = models.ForeignKey(Projects,on_delete=models.CASCADE, null=True, related_name="project_publish")
     status_id = models.ForeignKey(Published_statuses,on_delete=models.SET_NULL, null=True, related_name="project_publish")
-    user_id = models.ForeignKey(Users,on_delete=models.SET_NULL, null=True, related_name="project_publish") 
+    user_id = models.ForeignKey(Users,on_delete=models.SET_NULL, null=True, related_name="project_publish")
+    expert_availability = models.BooleanField(default=True) #true means avails, false means not available
     #if user|PIC is deleted, the value will be null. Can be called from users through related_name
     angles = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)  # This will automatically store the creation timestamp

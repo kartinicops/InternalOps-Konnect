@@ -11,6 +11,10 @@ from .views import ProjectPipelinesViewSet
 from .views import ProjectPublishedViewSet
 from .views import ProjectExpertsViewSet
 from .views import PublishStatusViewSet
+from .views import QuestionViewSet
+from .views import AnswerViewSet
+from .views import CompaniesOfInterestViewSet
+
 
 
 
@@ -27,6 +31,10 @@ router.register('project_pipeline', ProjectPipelinesViewSet)
 router.register('project_published', ProjectPublishedViewSet)
 router.register('project_experts', ProjectExpertsViewSet)
 router.register('published_status', PublishStatusViewSet)
+router.register('screening_question', QuestionViewSet)
+router.register('screening_answer', AnswerViewSet)
+router.register('companies_of_interest', CompaniesOfInterestViewSet)
+
 
 
 urlpatterns = [
