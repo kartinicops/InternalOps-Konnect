@@ -1,9 +1,7 @@
 "use client"
 
-// import type React from "react"
-// import { useEffect, useState } from "react"
 import React, { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   X,
   Building,
@@ -73,6 +71,7 @@ interface ScreeningAnswer {
   answer_id: number
   question_id: number
   expert_id: number
+  project_id: number
   answer: string
 }
 
@@ -83,6 +82,9 @@ interface ExpertDetailPopupProps {
 
 const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose }) => {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const currentProjectId = searchParams.get("id") ? Number.parseInt(searchParams.get("id") as string) : null
+  
   const [expert, setExpert] = useState<Expert | null>(null)
   const [experiences, setExperiences] = useState<Experience[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -141,35 +143,38 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
 
           setProjects(projectsData.filter(Boolean))
 
-          // Fetch screening questions for all projects
-          const allScreeningQuestions: ScreeningQuestion[] = []
-
-          for (const projectId of uniqueProjectIds) {
+          // Only show screening questions for the current project
+          // The currentProjectId comes from the URL params of the project detail page
+          if (currentProjectId) {
             try {
-              const questionsResponse = await API.get(`/screening_question/?project_id=${projectId}`)
+              // Fetch only the screening questions for this specific project
+              const questionsResponse = await API.get(`/screening_question/?project_id=${currentProjectId}`)
               if (questionsResponse.data && questionsResponse.data.length > 0) {
-                allScreeningQuestions.push(...questionsResponse.data)
+                // Make sure to filter out any questions that don't match the current project ID
+                // This is an additional safety measure
+                const projectQuestions = questionsResponse.data.filter(
+                  (q: ScreeningQuestion) => q.project_id === currentProjectId
+                )
+                setScreeningQuestions(projectQuestions)
+              } else {
+                setScreeningQuestions([])
+              }
+              
+              // Fetch screening answers for this expert and specifically for this project
+              try {
+                const answersResponse = await API.get(`/screening_answer/?expert_id=${expertId}&project_id=${currentProjectId}`)
+                setScreeningAnswers(answersResponse.data || [])
+              } catch (error) {
+                console.error("Error fetching screening answers:", error)
+                setScreeningAnswers([])
               }
             } catch (error) {
-              console.error(`Error fetching screening questions for project ${projectId}:`, error)
+              console.error(`Error fetching screening questions for project ${currentProjectId}:`, error)
+              setScreeningQuestions([])
             }
-          }
-
-          const uniqueQuestions = allScreeningQuestions.reduce((acc: ScreeningQuestion[], current) => {
-            const isDuplicate = acc.find((item) => item.question_id === current.question_id)
-            if (!isDuplicate) {
-              acc.push(current)
-            }
-            return acc
-          }, [])
-          setScreeningQuestions(uniqueQuestions)
-
-          // Fetch screening answers for this expert
-          try {
-            const answersResponse = await API.get(`/screening_answer/?expert_id=${expertId}`)
-            setScreeningAnswers(answersResponse.data || [])
-          } catch (error) {
-            console.error("Error fetching screening answers:", error)
+          } else {
+            // If we're not on a specific project page, don't show any screening questions
+            setScreeningQuestions([])
             setScreeningAnswers([])
           }
         } else {
@@ -187,7 +192,7 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
     if (expertId) {
       fetchExpertData()
     }
-  }, [expertId])
+  }, [expertId, currentProjectId])
 
   // Navigate to edit expert page
   const handleEditExpert = () => {
@@ -215,12 +220,18 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
 
   // Get answer for a specific question
   const getAnswerForQuestion = (questionId: number) => {
-    return screeningAnswers.find((answer) => answer.question_id === questionId && answer.expert_id === expertId)?.answer || null
+    return screeningAnswers.find((answer) => 
+      answer.question_id === questionId && 
+      answer.expert_id === expertId
+    )?.answer || null
   }
 
   // Get answer object for a specific question
   const getAnswerObjectForQuestion = (questionId: number) => {
-    return screeningAnswers.find((answer) => answer.question_id === questionId && answer.expert_id === expertId) || null
+    return screeningAnswers.find((answer) => 
+      answer.question_id === questionId && 
+      answer.expert_id === expertId
+    ) || null
   }
 
   // Handle saving an answer
@@ -232,6 +243,7 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
       const payload = {
         question_id: questionId,
         expert_id: expertId,
+        project_id: currentProjectId,
         answer: answer
       }
 
@@ -504,19 +516,30 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
                   {projects.map((project) => (
                     <div
                       key={project.project_id}
-                      className="bg-white p-4 rounded-lg border border-gray-200 hover:border-blue-200 hover:shadow-md transition-all"
+                      className={`bg-white p-4 rounded-lg border ${
+                        currentProjectId === project.project_id 
+                          ? "border-blue-400 shadow-md" 
+                          : "border-gray-200 hover:border-blue-200 hover:shadow-md"
+                      } transition-all`}
                     >
                       <div className="flex justify-between items-start">
                         <h4 className="font-medium text-gray-800">{project.project_name}</h4>
-                        <Badge
-                          className={
-                            project.status
-                              ? "bg-gray-100 text-gray-800 border-gray-200"
-                              : "bg-green-100 text-green-800 border-green-200"
-                          }
-                        >
-                          {project.status ? "Closed" : "Active"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {currentProjectId === project.project_id && (
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                              Current
+                            </Badge>
+                          )}
+                          <Badge
+                            className={
+                              project.status
+                                ? "bg-gray-100 text-gray-800 border-gray-200"
+                                : "bg-green-100 text-green-800 border-green-200"
+                            }
+                          >
+                            {project.status ? "Closed" : "Active"}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -534,7 +557,7 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
             <TabsContent value="screening" className="mt-0 h-full">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <ClipboardList className="h-5 w-5 mr-2 text-blue-500" />
-                Screening Questions
+                Project Screening Questions
               </h3>
 
               {screeningQuestions.length > 0 ? (
@@ -607,10 +630,7 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
               ) : (
                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
                   <ClipboardList className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No screening questions available</p>
-                  <p className="text-gray-400 text-sm mt-1">
-                    This expert hasn't been assigned to any projects with screening questions yet.
-                  </p>
+                  <p className="text-gray-500 font-medium">No screening questions available for this project</p>
                 </div>
               )}
             </TabsContent>

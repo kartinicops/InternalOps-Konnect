@@ -1,60 +1,73 @@
-"use client"
-
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { FileDown } from "lucide-react"
+import { FileText, Loader2 } from "lucide-react"
 import { generateExpertsPDF } from "@/lib/generate-expert-pdf"
+import { useSearchParams } from "next/navigation"
 import { toast } from "react-toastify"
 
 interface ExportExpertsButtonProps {
   expertIds: number[]
   disabled?: boolean
-  variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive"
 }
 
-const ExportExpertsButton = ({ expertIds, disabled = false, variant = "outline" }: ExportExpertsButtonProps) => {
+const ExportExpertsButton = ({ expertIds, disabled = false }: ExportExpertsButtonProps) => {
   const [isExporting, setIsExporting] = useState(false)
+  const searchParams = useSearchParams()
+  const projectId = searchParams.get("id")
 
-  const handleExportPDF = async () => {
+  const handleExport = async () => {
     if (expertIds.length === 0) {
-      toast.error("No experts selected for export")
+      toast.warn("Please select at least one expert to export")
       return
     }
 
+    setIsExporting(true)
     try {
-      setIsExporting(true)
-
-      // Generate the PDF
-      const pdfBlob = await generateExpertsPDF(expertIds)
-
-      // Create a download link
+      // Use the project ID in the PDF generation if available
+      const projectIdNumber = projectId ? parseInt(projectId) : null
+      const pdfBlob = await generateExpertsPDF(expertIds, projectIdNumber)
+      
+      // Create a URL for the blob
       const url = URL.createObjectURL(pdfBlob)
+      
+      // Create a temporary link and trigger download
       const link = document.createElement("a")
       link.href = url
-      link.download =
-        expertIds.length === 1 ? `expert-profile-${expertIds[0]}.pdf` : `expert-profiles-${expertIds.length}.pdf`
-
-      // Trigger download
+      link.download = `expert-profiles-${new Date().toISOString().split("T")[0]}.pdf`
       document.body.appendChild(link)
       link.click()
-
+      
       // Clean up
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-
-      toast.success(`${expertIds.length} expert profile${expertIds.length > 1 ? "s" : ""} exported successfully`)
+      
+      toast.success(`${expertIds.length} expert profile${expertIds.length > 1 ? 's' : ''} exported successfully`)
     } catch (error) {
-      console.error("Error exporting experts:", error)
-      toast.error("Failed to export expert profiles")
+      console.error("Error exporting expert profiles:", error)
+      toast.error("Failed to export expert profiles. Please try again.")
     } finally {
       setIsExporting(false)
     }
   }
 
   return (
-    <Button variant={variant} onClick={handleExportPDF} disabled={disabled || isExporting || expertIds.length === 0}>
-      {isExporting ? "Exporting..." : "Export to PDF"}
-      <FileDown className="ml-2 h-4 w-4" />
+    <Button
+      variant="outline"
+      onClick={handleExport}
+      disabled={disabled || isExporting || expertIds.length === 0}
+      className="bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700 border border-gray-300"
+    >
+      {isExporting ? (
+        <>
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          Exporting...
+        </>
+      ) : (
+        <>
+          <FileText className="h-4 w-4 mr-2" />
+          Export PDF
+        </>
+      )}
     </Button>
   )
 }

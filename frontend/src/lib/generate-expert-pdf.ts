@@ -13,6 +13,8 @@ interface Expert {
   phone_number: string
   expert_cost: number
   created_at?: string
+  notes?: string
+  availability?: boolean
 }
 
 interface Experience {
@@ -33,7 +35,17 @@ interface Project {
 interface ScreeningQuestion {
   question_id: number | null
   expert_id: number | null
+  project_id: number | null
+  question: string
   answer: string
+}
+
+// Get expert initials from full name
+const getInitials = (name: string): string => {
+  return name
+    .split(" ")
+    .map((part) => part.charAt(0))
+    .join("")
 }
 
 // Format date from API (e.g., "01-2017" to "Jan 2017")
@@ -55,7 +67,7 @@ const formatDate = (dateString: string | null): string => {
 }
 
 // Fetch all data for a single expert
-const fetchExpertData = async (expertId: number) => {
+const fetchExpertData = async (expertId: number, projectId: number | null = null) => {
   try {
     // Fetch expert details
     const expertResponse = await API.get(`/experts/${expertId}/`)
@@ -65,45 +77,53 @@ const fetchExpertData = async (expertId: number) => {
     const experiencesResponse = await API.get(`/expert_experiences/?expert_id=${expertId}`)
     const experiences: Experience[] = experiencesResponse.data.filter((exp: Experience) => exp.expert_id === expertId)
 
-    // Fetch projects
-    const pipelineResponse = await API.get(`/project_pipeline/?expert_id=${expertId}`)
-    const publishedResponse = await API.get(`/project_published/?expert_id=${expertId}`)
-
-    const pipelineAssignments = pipelineResponse.data.filter((item: any) => item.expert_id === expertId)
-
-    const publishedAssignments = publishedResponse.data.filter((item: any) => item.expert_id === expertId)
-
-    const projectIds = [
-      ...pipelineAssignments.map((item: any) => item.project_id),
-      ...publishedAssignments.map((item: any) => item.project_id),
-    ]
-
-    const uniqueProjectIds = [...new Set(projectIds)]
-
-    let projects: Project[] = []
-    if (uniqueProjectIds.length > 0) {
-      projects = await Promise.all(
-        uniqueProjectIds.map(async (projectId) => {
-          try {
-            const projectResponse = await API.get(`/projects/${projectId}/`)
-            return projectResponse.data
-          } catch (error) {
-            console.error(`Error fetching project ${projectId}:`, error)
-            return null
-          }
-        }),
+    // Fetch published assignments to check availability
+    if (projectId) {
+      const publishedResponse = await API.get(`/project_published/?expert_id=${expertId}`)
+      const publishedAssignments = publishedResponse.data.filter((item: any) => item.expert_id === expertId)
+      
+      // Check availability for the specific project if projectId is provided
+      const projectAvailability = publishedAssignments.find(
+        (item: any) => item.project_id === projectId && item.expert_id === expertId,
       )
-      projects = projects.filter(Boolean)
+      expert.availability = projectAvailability ? projectAvailability.availability : false
     }
 
-    // Fetch screening questions
-    const screeningResponse = await API.get(`/screening_question/?expert_id=${expertId}`)
-    const screeningQuestions: ScreeningQuestion[] = screeningResponse.data
+    // Fetch screening questions and answers
+    let screeningQuestions: ScreeningQuestion[] = []
+
+    // If projectId is provided, fetch screening questions for that specific project
+    if (projectId) {
+      // Fetch project-specific screening questions
+      const projectScreeningResponse = await API.get(`/screening_question/?project_id=${projectId}`)
+      const projectQuestions = projectScreeningResponse.data || []
+
+      // Fetch expert's answers for this project
+      const expertAnswersResponse = await API.get(`/screening_answer/?expert_id=${expertId}&project_id=${projectId}`)
+      const expertAnswers = expertAnswersResponse.data || []
+
+      // Combine questions with expert's answers
+      screeningQuestions = projectQuestions.map((question: any) => {
+        // Find the corresponding answer for this question
+        const answer = expertAnswers.find((a: any) => a.question_id === question.question_id)
+
+        return {
+          question_id: question.question_id,
+          expert_id: expertId,
+          project_id: projectId,
+          question: question.question,
+          answer: answer ? answer.answer : "No answer provided",
+        }
+      })
+    } else {
+      // Fallback to general screening questions if no projectId is provided
+      const screeningResponse = await API.get(`/screening_question/?expert_id=${expertId}`)
+      screeningQuestions = screeningResponse.data
+    }
 
     return {
       expert,
       experiences,
-      projects,
       screeningQuestions,
     }
   } catch (error) {
@@ -154,7 +174,7 @@ const formatDateRange = (startDate: string, endDate: string | null): string => {
 }
 
 // Generate PDF for multiple experts
-export const generateExpertsPDF = async (expertIds: number[]): Promise<Blob> => {
+export const generateExpertsPDF = async (expertIds: number[], projectId: number | null = null): Promise<Blob> => {
   // Create a new PDF document
   const doc = new jsPDF()
 
@@ -167,6 +187,18 @@ export const generateExpertsPDF = async (expertIds: number[]): Promise<Blob> => 
     creator: "PDF Generator",
   })
 
+  // Get project name if projectId is provided
+  let projectName = ""
+  if (projectId) {
+    try {
+      const projectResponse = await API.get(`/projects/${projectId}/`)
+      projectName = projectResponse.data.project_name || "Project Details"
+    } catch (error) {
+      console.error(`Error fetching project ${projectId}:`, error)
+      projectName = "Project Details"
+    }
+  }
+
   // For each expert ID
   for (let i = 0; i < expertIds.length; i++) {
     const expertId = expertIds[i]
@@ -177,97 +209,79 @@ export const generateExpertsPDF = async (expertIds: number[]): Promise<Blob> => 
     }
 
     try {
-      // Fetch expert data
-      const { expert, experiences, projects, screeningQuestions } = await fetchExpertData(expertId)
+      // Fetch expert data with the projectId to get project-specific screening questions
+      const { expert, experiences, screeningQuestions } = await fetchExpertData(expertId, projectId)
 
       // Set elegant fonts and styling
       doc.setFont("helvetica", "bold")
       doc.setFontSize(20)
 
-      // Add company logo/header
-      doc.setFillColor(240, 240, 240)
-      doc.rect(0, 0, 210, 25, "F")
-      doc.setTextColor(50, 50, 50)
-      doc.text("KONNECT EXPERT", 105, 15, { align: "center" })
+      // Add Konnect logo (without background) - positioned at right side
+      try {
+        // Load the logo from the public directory
+        const logo = new Image()
+        logo.src = "/konnect-logo.jpeg"
 
-      // Expert name and title
-      doc.setFontSize(16)
-      doc.text(expert.full_name, 20, 40)
+        // Add logo to PDF (right-aligned in the header)
+        doc.addImage(logo, "PNG", 19, 5, 25, 25)
+      } catch (error) {
+        console.error("Error adding logo to PDF:", error)
+        // Fallback text if logo fails to load
+        doc.setTextColor(50, 50, 50)
+        doc.text("KONNECT", 170, 15, { align: "center" })
+      }
 
-      // Current position if available
+      // Get expert's latest job title from experiences instead of initials
+      let latestTitle = "Expert"
+
       if (experiences && experiences.length > 0) {
-        // Sort experiences to get the current one
+        // Sort experiences by end date (null/Present should be first)
         const sortedExperiences = [...experiences].sort((a, b) => {
           if (!a.end_date) return -1
           if (!b.end_date) return 1
-          return new Date(b.end_date).getTime() - new Date(a.end_date).getTime()
+          return b.end_date.localeCompare(a.end_date)
         })
 
-        const currentPosition = sortedExperiences[0]
-        doc.setFont("helvetica", "normal")
-        doc.setFontSize(12)
-        doc.text(`${currentPosition.title} at ${currentPosition.company_name}`, 20, 48)
+        // Use the most recent job title
+        latestTitle = sortedExperiences[0].title
       }
 
-      // Basic info section - with icons, no heading
-      doc.setDrawColor(220, 220, 220)
-      doc.setLineWidth(0.5)
-      doc.line(20, 55, 190, 55)
+      // Display latest title instead of initials - moved further up
+      doc.setFontSize(16)
+      doc.setFont("helvetica", "bold")
+      doc.text(latestTitle, 20, 35)
 
-      // Basic information with icons
+      // About section - moved up
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(11)
+      doc.text("Biography", 20, 45)
+
+      // Display expert notes from API - moved up
       doc.setFont("helvetica", "normal")
       doc.setFontSize(9)
 
-      // Left column
-      const leftColumnX = 20
-      const iconOffset = 25 // Increased offset for text labels
+      // Get notes from expert data or use default text
+      const expertNotes = expert.notes || "No additional information available about this expert."
 
-      // Industry
-      drawIcon(doc, "industry", leftColumnX, 65)
-      doc.setFont("helvetica", "normal")
-      doc.text(expert.industry, leftColumnX + iconOffset, 65)
+      // Handle multi-line notes with text wrapping
+      const splitNotes = doc.splitTextToSize(expertNotes, 170)
+      doc.text(splitNotes, 20, 55)
 
-      // Location
-      drawIcon(doc, "location", leftColumnX, 73)
-      doc.setFont("helvetica", "normal")
-      doc.text(expert.country_of_residence, leftColumnX + iconOffset, 73)
+      // Calculate the height of the notes section
+      const notesHeight = splitNotes.length * 5
 
-      // Email
-      drawIcon(doc, "email", leftColumnX, 81)
-      doc.setFont("helvetica", "normal")
-      doc.text(expert.email, leftColumnX + iconOffset, 81)
+      // Calculate the position for the next section
+      const separatorY = 60 + notesHeight
 
-      // Right column
-      const rightColumnX = 110
-      const rightIconOffset = 25 // Increased offset for text labels
-
-      // Phone
-      drawIcon(doc, "phone", rightColumnX, 65)
-      doc.setFont("helvetica", "normal")
-      doc.text(expert.phone_number || "Not provided", rightColumnX + rightIconOffset, 65)
-
-      // LinkedIn
-      drawIcon(doc, "linkedin", rightColumnX, 73)
-      doc.setFont("helvetica", "normal")
-      const linkedInText = expert.linkedIn_profile_link || "Not provided"
-      // Handle long LinkedIn URLs by truncating if necessary
-      doc.text(
-        linkedInText.length > 30 ? linkedInText.substring(0, 27) + "..." : linkedInText,
-        rightColumnX + rightIconOffset,
-        73,
-      )
-
-      // Hourly Rate
-      drawIcon(doc, "cost", rightColumnX, 81)
-      doc.setFont("helvetica", "normal")
-      doc.text(`$${expert.expert_cost}/hr`, rightColumnX + rightIconOffset, 81)
-
-      // Career History section with new layout
+      // Career History section with adjusted position and formatting
       doc.setFont("helvetica", "bold")
       doc.setFontSize(11)
-      doc.text("CAREER HISTORY", 20, 95)
 
-      let currentY = 105 // Starting Y position for career history entries
+      // Calculate position based on the notes section
+      const careerHistoryY = separatorY + 5
+      doc.text("CAREER HISTORY", 20, careerHistoryY)
+
+      let currentY = careerHistoryY + 10 // Starting Y position for career history entries
 
       if (experiences && experiences.length > 0) {
         // Sort experiences by date
@@ -284,26 +298,23 @@ export const generateExpertsPDF = async (expertIds: number[]): Promise<Blob> => 
             currentY = 20 // Reset Y position on new page
           }
 
-          // Date range (left column)
+          // Title on left side
+
+          // Title and company on the same line
+          doc.setFont("helvetica", "normal")
+          doc.setFontSize(10)
+          doc.text(`${exp.title} at ${exp.company_name}`, 20, currentY)
+
+          // Duration on right side
           doc.setFont("helvetica", "normal")
           doc.setFontSize(9)
           const dateRange = formatDateRange(exp.start_date, exp.end_date)
-          doc.text(dateRange, 20, currentY)
+          doc.text(dateRange, 190, currentY, { align: "right" })
 
-          // Separator
-          doc.text("|", 85, currentY)
+          // Company name below title
 
-          // Position and company (right column)
-          const position = `${exp.title} at ${exp.company_name}`
-
-          // Handle long text wrapping
-          const maxWidth = 95 // Width available for position text
-          const splitPosition = doc.splitTextToSize(position, maxWidth)
-
-          doc.text(splitPosition, 90, currentY)
-
-          // Adjust vertical position based on whether text wrapped
-          currentY += splitPosition.length > 1 ? splitPosition.length * 5 + 3 : 8
+          // Adjust vertical position for next experience entry
+          currentY += 10
         })
       } else {
         doc.setFont("helvetica", "italic")
@@ -315,61 +326,14 @@ export const generateExpertsPDF = async (expertIds: number[]): Promise<Blob> => 
       // Add some padding between sections
       currentY += 5
 
-      // Projects section
-      doc.setFont("helvetica", "bold")
-      doc.setFontSize(11)
-      doc.text("PROJECTS", 20, currentY)
-      currentY += 10
-
-      if (projects && projects.length > 0) {
-        projects.forEach((project) => {
-          // Check if we need to add a new page
-          if (currentY > 250) {
-            doc.addPage()
-            currentY = 20 // Reset Y position on new page
-          }
-
-          // Project name (left side)
-          doc.setFont("helvetica", "normal") // Ensure normal font weight for project name
-          doc.setFontSize(10)
-          doc.text(project.project_name, 20, currentY)
-
-          // Status without border (right side)
-          const status = project.status ? "Closed" : "Active"
-
-          // Add status text without border
-          doc.setFont("helvetica", "normal")
-          doc.setFontSize(8)
-          // Set green color for "Active" status
-          if (!project.status) {
-            doc.setTextColor(0, 128, 0) // Green color for Active
-          } else {
-            doc.setTextColor(0, 0, 0) // Black color for Closed
-          }
-          doc.text(status, 170, currentY, { align: "right" })
-          // Reset text color back to default
-          doc.setTextColor(0, 0, 0)
-
-          currentY += 8
-        })
-      } else {
-        doc.setFont("helvetica", "italic")
-        doc.setFontSize(10)
-        doc.text("No projects available", 20, currentY)
-        currentY += 15
-      }
-
-      // Update the starting position for the next section (Screening Questions)
-      let questionsYPosition = currentY + 10
-
       // Screening Questions section
       doc.setFont("helvetica", "bold")
       doc.setFontSize(11)
-      doc.text("SCREENING QUESTIONS", 20, questionsYPosition)
+      doc.text("SCREENING QUESTIONS", 20, currentY)
+
+      let questionsYPosition = currentY + 10
 
       if (screeningQuestions && screeningQuestions.length > 0) {
-        questionsYPosition += 10
-
         screeningQuestions.forEach((question, index) => {
           // Check if we need to add a new page
           if (questionsYPosition > 250) {
@@ -377,28 +341,72 @@ export const generateExpertsPDF = async (expertIds: number[]): Promise<Blob> => 
             questionsYPosition = 20 // Reset Y position on new page
           }
 
-          doc.setFont("helvetica", "bold")
-          doc.setFontSize(10)
-          doc.text(`Question ${index + 1}:`, 20, questionsYPosition)
+          // Display the question and answer in a single box
+          const questionText = question.question || "No question available"
+          const answerText = question.answer || "No answer provided"
 
+          // Format the content with question and answer in the same box
+          const boxContent = [`Question ${index + 1}: ${questionText}`, `Answer: ${answerText}`]
+
+          // Split text to fit within box width
+          const splitContent = doc.splitTextToSize(boxContent.join("\n\n"), 160)
+
+          // Calculate box height based on content
+          const boxHeight = splitContent.length * 5 + 10
+
+          // Draw a single box for both question and answer
+          doc.setDrawColor(200, 200, 200)
+          doc.setFillColor(245, 245, 245)
+          doc.roundedRect(20, questionsYPosition, 170, boxHeight, 2, 2, "FD")
+
+          // Add the content inside the box
           doc.setFont("helvetica", "normal")
-          // Handle multi-line answers with text wrapping
-          const splitAnswer = doc.splitTextToSize(question.answer || "No answer provided", 160)
-          doc.text(splitAnswer, 20, questionsYPosition + 6)
+          doc.setFontSize(9)
+          doc.text(splitContent, 25, questionsYPosition + 8)
 
-          questionsYPosition += 10 + splitAnswer.length * 5
+          // Adjust vertical position for next question
+          questionsYPosition += boxHeight + 10
         })
       } else {
         doc.setFont("helvetica", "italic")
         doc.setFontSize(10)
         doc.text("No screening questions available", 20, questionsYPosition + 10)
+        questionsYPosition += 20
       }
 
-      // Footer
-      doc.setFont("helvetica", "italic")
+      // Add availability status after screening questions
+      if (projectId) {
+        // Add some padding
+        questionsYPosition += 10
+        
+        doc.setFont("helvetica", "bold")
+        doc.setFontSize(11)
+        doc.text("AVAILABILITY", 20, questionsYPosition)
+        
+        questionsYPosition += 10
+        
+        doc.setFontSize(10)
+        if (expert.availability) {
+          doc.setTextColor(0, 128, 0) // Green color for Available
+          doc.text("Available", 20, questionsYPosition)
+        } else {
+          doc.setTextColor(220, 53, 69) // Red color for Unavailable
+          doc.text("Unavailable", 20, questionsYPosition)
+        }
+        // Reset text color
+        doc.setTextColor(0, 0, 0)
+      }
+
+      // Improved Footer with soft blue underline - less wide
+      doc.setDrawColor(220, 235, 250) // Light blue
+      doc.setLineWidth(0.5)
+      doc.line(20, 280, 190, 280)
+
+      doc.setFont("helvetica", "normal")
       doc.setFontSize(8)
-      doc.text(`Generated on ${new Date().toLocaleDateString()}`, 105, 285, { align: "center" })
-      doc.text(`Page ${i + 1} of ${expertIds.length}`, 105, 290, { align: "center" })
+      doc.setTextColor(100, 100, 100)
+      doc.text("KONNECT Expert Profile", 20, 287)
+      doc.text(`Page ${i + 1} of ${expertIds.length}`, 190, 287, { align: "right" })
     } catch (error) {
       console.error(`Error generating PDF for expert ${expertId}:`, error)
       // Add error message to the page

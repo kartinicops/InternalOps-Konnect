@@ -195,68 +195,74 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!id) return
 
-    const fetchProject = async () => {
-      try {
-        await API.get("/api/csrf/")
-        const response = await API.get(`/projects/${id}/`, { withCredentials: true })
-        const projectData = response.data
+// Example of updated screening questions fetch logic within useEffect
+const fetchProject = async () => {
+  try {
+    await API.get("/api/csrf/")
+    const response = await API.get(`/projects/${id}/`, { withCredentials: true })
+    const projectData = response.data
 
-        // Fetch all related data in parallel
-        const endpoints = [
-          { key: "geography", url: `/projects_geography/${projectData.geography_id}/` },
-          { key: "files", url: `/projects_files/?project_id=${id}` },
-          { key: "companies_of_interest", url: `/companies_of_interest/?project_id=${id}` },
-          { key: "client_companies", url: `/project_client_company/` },
-          { key: "client_teams", url: `/project_client_team/` },
-          { key: "client_members", url: `/client_members/` },
-          { key: "screening_questions", url: `/screening_question/?project_id=${id}` },
-        ]
+    // Fetch all related data in parallel
+    const endpoints = [
+      { key: "geography", url: `/projects_geography/${projectData.geography_id}/` },
+      { key: "files", url: `/projects_files/?project_id=${id}` },
+      { key: "companies_of_interest", url: `/companies_of_interest/?project_id=${id}` },
+      { key: "client_companies", url: `/project_client_company/` },
+      { key: "client_teams", url: `/project_client_team/` },
+      { key: "client_members", url: `/client_members/` },
+      { key: "screening_questions", url: `/screening_question/?project_id=${id}` }, // This already includes project_id filter
+    ]
 
-        const results = await Promise.allSettled(endpoints.map((endpoint) => API.get(endpoint.url)))
+    const results = await Promise.allSettled(endpoints.map((endpoint) => API.get(endpoint.url)))
 
-        results.forEach((result, index) => {
-          const { key } = endpoints[index]
-          if (result.status === "fulfilled") {
-            let data = result.value.data
+    results.forEach((result, index) => {
+      const { key } = endpoints[index]
+      if (result.status === "fulfilled") {
+        let data = result.value.data
 
-            // Filter files by project ID
-            if (key === "files") {
-              data = Array.isArray(data)
-                ? data.filter((file) => file.project_id === Number.parseInt(id) || file.project_id === id)
-                : []
-            }
+        // Filter files by project ID
+        if (key === "files") {
+          data = Array.isArray(data)
+            ? data.filter((file) => file.project_id === Number.parseInt(id as string) || file.project_id === id)
+            : []
+        }
 
-            // For screening_questions, extract questions only if data exists
-            if (key === "screening_questions" && Array.isArray(data) && data.length > 0) {
-              // Save complete data
-              projectData[key] = data
-
-              // If there are screening questions from API, replace those from the project
-              const questionTexts = data.map((item) => item.question).filter(Boolean)
-              if (questionTexts.length > 0) {
-                projectData.general_screening_questions = questionTexts.join("\n\n")
-              }
-            } else {
-              projectData[key] = data
-            }
-          } else {
-            console.error(`Error fetching ${key}:`, result.reason)
-            if (key === "geography") {
-              projectData[key] = { country: "Unknown", city: "Unknown", timezone: "Unknown" }
-            } else {
-              projectData[key] = []
-            }
+        // For screening_questions, ensure they belong to the current project and extract questions
+        if (key === "screening_questions" && Array.isArray(data)) {
+          // Double-check that screening questions belong to the current project
+          const filteredQuestions = data.filter(
+            (question) => question.project_id === Number.parseInt(id as string) || question.project_id === id
+          )
+          
+          // Save filtered questions
+          projectData[key] = filteredQuestions
+          
+          // If there are screening questions from API, replace those from the project
+          const questionTexts = filteredQuestions.map((item) => item.question).filter(Boolean)
+          if (questionTexts.length > 0) {
+            projectData.general_screening_questions = questionTexts.join("\n\n")
           }
-        })
-
-        setProject(projectData)
-      } catch (error) {
-        console.error("Error fetching project:", error)
-        toast.error("Failed to load project details")
-      } finally {
-        setLoading(false)
+        } else {
+          projectData[key] = data
+        }
+      } else {
+        console.error(`Error fetching ${key}:`, result.reason)
+        if (key === "geography") {
+          projectData[key] = { country: "Unknown", city: "Unknown", timezone: "Unknown" }
+        } else {
+          projectData[key] = []
+        }
       }
-    }
+    })
+
+    setProject(projectData)
+  } catch (error) {
+    console.error("Error fetching project:", error)
+    toast.error("Failed to load project details")
+  } finally {
+    setLoading(false)
+  }
+}
 
     fetchProject()
   }, [id])
@@ -327,33 +333,40 @@ export default function ProjectDetailPage() {
 
     screeningQuestions: () => {
       // Check first if we have data from API
-      const screeningQuestionsFromAPI = project.screening_questions
-
+      const screeningQuestionsFromAPI = project.screening_questions;
+    
       if (
         screeningQuestionsFromAPI &&
         Array.isArray(screeningQuestionsFromAPI) &&
         screeningQuestionsFromAPI.length > 0
       ) {
-        return screeningQuestionsFromAPI.map((questionObj, index) => (
-          <div
-            key={`question-${questionObj.id || index}`}
-            className="p-2 bg-gray-50 rounded-md border border-gray-200 mb-2"
-          >
-            <div className="flex items-center">
-              <div className="text-sm bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center font-medium mr-2 flex-shrink-0">
-                {index + 1}
+        // Filter screening questions to ensure they belong to the current project
+        const filteredQuestions = screeningQuestionsFromAPI.filter(
+          (questionObj) => questionObj.project_id === Number.parseInt(id as string)
+        );
+    
+        if (filteredQuestions.length > 0) {
+          return filteredQuestions.map((questionObj, index) => (
+            <div
+              key={`question-${questionObj.question_id || index}`}
+              className="p-2 bg-gray-50 rounded-md border border-gray-200 mb-2"
+            >
+              <div className="flex items-center">
+                <div className="text-sm bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center font-medium mr-2 flex-shrink-0">
+                  {index + 1}
+                </div>
+                <div className="text-gray-800 text-sm">{questionObj.question}</div>
               </div>
-              <div className="text-gray-800 text-sm">{questionObj.question}</div>
             </div>
-          </div>
-        ))
+          ));
+        }
       }
-
-      // Fallback to data from project if no data from API
+    
+      // Fallback to data from project if no data from API or no filtered questions for this project
       if (!project.general_screening_questions) {
-        return <div className="text-gray-500 text-sm">No screening questions available.</div>
+        return <div className="text-gray-500 text-sm">No screening questions available for this project.</div>;
       }
-
+    
       return project.general_screening_questions.split("\n\n").map((question, index) => (
         <div key={`question-${index}`} className="p-2 bg-gray-50 rounded-md border border-gray-200 mb-2">
           <div className="flex items-center">
@@ -363,7 +376,7 @@ export default function ProjectDetailPage() {
             <div className="text-gray-800 text-sm">{question.replace(/^(Question\s*\d+\s*:\s*)/, "").trim()}</div>
           </div>
         </div>
-      ))
+      ));
     },
   }
 

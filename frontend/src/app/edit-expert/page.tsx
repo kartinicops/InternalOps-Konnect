@@ -1,4 +1,5 @@
-"use client"
+'use client'
+
 import { Building } from "lucide-react"
 import { useState, useEffect, ChangeEvent, FormEvent } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -14,6 +15,9 @@ import "react-toastify/dist/ReactToastify.css"
 import { FaLinkedin } from 'react-icons/fa'
 // Import our custom CountriesSelect component
 import { CountriesSelect } from "@/components/countries-select"
+
+// Import the ExpertStatusManager from its own file
+import { ExpertStatusManager } from "@/components/expert-status-manager";
 
 export default function EditExpert() {
   const router = useRouter()
@@ -31,6 +35,7 @@ export default function EditExpert() {
     industry: "",
     countryOfResidence: "",
     expertCost: 0,
+    notes: "",
   })
   
   // Track original experience IDs to detect removed entries for deletion
@@ -39,6 +44,15 @@ export default function EditExpert() {
   const [careerEntries, setCareerEntries] = useState([
     { title: "", company_name: "", start_date: "", end_date: "", id: Date.now(), experience_id: null }
   ])
+
+  // We don't need publishedData state anymore as the ExpertStatusManager fetches its own data
+
+  // Handle status change function
+  const handleStatusChange = (statusData) => {
+    console.log("Status/availability changed:", statusData);
+    // No need to update local state as the ExpertStatusManager handles its own state
+    // We just need this for notification purposes
+  };
 
   // Fetch the expert data on component mount
   useEffect(() => {
@@ -63,10 +77,11 @@ export default function EditExpert() {
           industry: expertData.industry,
           countryOfResidence: expertData.country_of_residence,
           expertCost: expertData.expert_cost,
+          notes: expertData.notes || "", 
         })
 
         // Fetch expert experiences
-        const experiencesResponse = await API.get(`/expert_experiences/?expert_id=${expertId}`)
+        const experiencesResponse = await API.get(`/expert_experiences/?expert_id=${expertId}/`)
         const experiencesData = experiencesResponse.data
         
         // Filter experiences to only include those belonging to this expert
@@ -77,15 +92,12 @@ export default function EditExpert() {
           const expIds = expertExperiences.map(exp => exp.experience_id)
           setOriginalExperienceIds(expIds)
           
-          // Map experiences to our state format - KEEPING ORIGINAL DATE FORMAT FROM API
+          // Map experiences to our state format - keeping the MM-YYYY format from API
           const formattedExperiences = expertExperiences.map(exp => {
-            // Log the original dates from the API for debugging
-            console.log("Original date from API:", exp.start_date, exp.end_date);
-            
             return {
               title: exp.title,
               company_name: exp.company_name,
-              // Keep the original dates from API
+              // Keep original format (MM-YYYY) from API
               start_date: exp.start_date || "",
               end_date: exp.end_date || "",
               id: Date.now() + Math.random(),
@@ -132,10 +144,33 @@ export default function EditExpert() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  // Date validation helper for MM-YYYY format
+  const isValidDateFormat = (dateString: string): boolean => {
+    if (!dateString) return true; // Empty is valid (for end date)
+    
+    // Validate MM-YYYY format
+    const regex = /^(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(dateString)) return false;
+    
+    // Extract month and year
+    const [month, year] = dateString.split('-').map(Number);
+    
+    // Validate month and year range
+    return month >= 1 && month <= 12 && year >= 1900 && year <= new Date().getFullYear();
+  }
+
   const handleCareerChange = (index: number, field: string, value: string) => {
-    const updatedEntries = [...careerEntries]
-    updatedEntries[index] = { ...updatedEntries[index], [field]: value }
-    setCareerEntries(updatedEntries)
+    const updatedEntries = [...careerEntries];
+    
+    // Special validation for date fields
+    if ((field === "start_date" || field === "end_date")) {
+      // Allow typing as the user enters the date
+      updatedEntries[index] = { ...updatedEntries[index], [field]: value };
+    } else {
+      updatedEntries[index] = { ...updatedEntries[index], [field]: value };
+    }
+    
+    setCareerEntries(updatedEntries);
   }
 
   const addCareerEntry = () => {
@@ -180,6 +215,18 @@ export default function EditExpert() {
       return
     }
   
+    // Validate career entries including date format
+    const invalidDates = careerEntries.some(entry => 
+      (entry.start_date && !isValidDateFormat(entry.start_date)) || 
+      (entry.end_date && !isValidDateFormat(entry.end_date))
+    );
+    
+    if (invalidDates) {
+      toast.error("Please use MM-YYYY format for all dates (e.g. 01-2020)")
+      setSaving(false)
+      return
+    }
+    
     // Validate at least one valid career entry
     const validCareerEntries = careerEntries.filter(entry => 
       entry.title.trim() && entry.company_name.trim() && entry.start_date
@@ -193,7 +240,7 @@ export default function EditExpert() {
   
     try {
       // Update expert data
-      await API.put(`/experts/${expertId}`, {
+      await API.put(`/experts/${expertId}/`, { // Added trailing slash
         full_name: formData.fullName,
         email: formData.email,
         phone_number: formData.phone || null,
@@ -201,6 +248,7 @@ export default function EditExpert() {
         industry: formData.industry,
         country_of_residence: formData.countryOfResidence,
         expert_cost: formData.expertCost,
+        notes: formData.notes || null,
       })
   
       // Process career entries
@@ -216,14 +264,14 @@ export default function EditExpert() {
       
       // 2. Delete removed experiences
       const deletePromises = experienceIdsToDelete.map(id => 
-        API.delete(`/expert_experiences/${id}`)
+        API.delete(`/expert_experiences/${id}/`)
       )
       
       await Promise.all(deletePromises)
       
       // 3. Update existing and create new entries
       const careerPromises = careerEntries.map(async entry => {
-        // Send dates in the format they were received from API or entered by user
+        // Send dates in the MM-YYYY format 
         const entryData = {
           expert_id: expertId,
           title: entry.title,
@@ -234,7 +282,7 @@ export default function EditExpert() {
 
         if (entry.experience_id) {
           // Update existing entry
-          return API.put(`/expert_experiences/${entry.experience_id}`, entryData)
+          return API.put(`/expert_experiences/${entry.experience_id}/`, entryData)
         } else {
           // Create new entry
           return API.post("/expert_experiences/", entryData)
@@ -387,6 +435,57 @@ export default function EditExpert() {
                     <FaLinkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   </div>
                 </div>
+                
+                {/* Biography field - full width across both columns */}
+                <div className="space-y-2 group md:col-span-2">
+                  <Label htmlFor="notes" className="text-sm font-medium text-gray-700 flex items-center gap-2 group-hover:text-blue-600 transition-colors">
+                  <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 mr-2 text-blue-600"
+                >
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                    Biography
+                  </Label>
+                  <div className="relative">
+                    <textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      placeholder="Enter expert biography or additional notes..."
+                      className="w-full min-h-[120px] bg-white rounded-lg p-3 pl-3 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow resize-y border border-gray-300 focus:border-blue-300 focus:outline-none"
+                    />
+                    {/* <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="absolute left-3 top-3 h-4 w-4 text-gray-400"
+                    >
+                      <line x1="8" y1="6" x2="21" y2="6"></line>
+                      <line x1="8" y1="12" x2="21" y2="12"></line>
+                      <line x1="8" y1="18" x2="21" y2="18"></line>
+                      <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                      <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                      <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg> */}
+                  </div>
+                  <p className="text-xs text-gray-500 ml-1">Provide a short biography or any additional information about the expert</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -490,7 +589,7 @@ export default function EditExpert() {
                     />
                     <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium text-sm">$</span>
                   </div>
-                  <p className="text-xs text-gray-500 ml-1 mb-8">Hourly rate in USD</p>
+                  <p className="text-xs text-gray-500 ml-1">Hourly rate in USD</p>
                 </div>
               </div>
             </CardContent>
@@ -615,12 +714,12 @@ export default function EditExpert() {
                               type="text" 
                               value={entry.start_date}
                               onChange={(e) => handleCareerChange(index, "start_date", e.target.value)}
-                              placeholder="YYYY-MM-DD"
+                              placeholder="MM-YYYY"
                               className="bg-white h-10 rounded-lg pl-9 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow"
                             />
                             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                           </div>
-                          <p className="text-xs text-gray-500 ml-1">Format: YYYY-MM-DD</p>
+                          <p className="text-xs text-gray-500 ml-1">Format: MM-YYYY (e.g. 01-2020)</p>
                         </div>
                         
                         <div className="space-y-2">
@@ -633,7 +732,7 @@ export default function EditExpert() {
                               type="text"
                               value={entry.end_date}
                               onChange={(e) => handleCareerChange(index, "end_date", e.target.value)}
-                              placeholder="YYYY-MM-DD"
+                              placeholder="MM-YYYY"
                               className="bg-white h-10 rounded-lg pl-9 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow"
                             />
                             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -647,6 +746,13 @@ export default function EditExpert() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Expert Status Card - Show for all experts, but filter by projectId if coming from a project */}
+          <ExpertStatusManager 
+            expertId={expertId}
+            projectId={projectId}
+            onStatusChange={handleStatusChange}
+          />
 
           {/* Form Actions */}
           <div className="flex justify-end gap-4 pt-4">

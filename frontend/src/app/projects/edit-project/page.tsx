@@ -1,3 +1,13 @@
+// First, update the ProjectFormData interface to include the completed calls
+// Add this in your types/projects.ts file
+
+// types/projects.ts (you should add this to your completedCalls property)
+// export interface ProjectFormData {
+//   // ...existing properties
+//   completedCalls: string;
+//   // ...other properties
+// }
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +17,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, FileUp, FilePlus, X, ArrowLeft, MapPin, Globe, Clock, Building, FileText, HelpCircle, Plus, ListChecks, Trash2, AlertCircle } from "lucide-react";
+import { Loader2, Calendar, FileUp, FilePlus, X, ArrowLeft, MapPin, Globe, Clock, Building, FileText, HelpCircle, Plus, ListChecks, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProjectFormData } from "@/types/projects";
 import { geographies as geographiesData } from "@/data/geographies";
@@ -17,6 +27,7 @@ import ScreeningQuestionsForm from "@/components/projects/screeninng-question-fo
 import ClientRequirementsForm from "@/components/projects/client-requirements-form";
 import ProjectFilesForm from "@/components/projects/project-files-form";
 import ClientDetailsFormEdit from "@/components/projects/client-details-form-edit";
+import CompletedCallsForm from "@/components/projects/completed-calls-form"; // We'll create this component
 
 export default function EditProject() {
   const router = useRouter();
@@ -27,6 +38,7 @@ export default function EditProject() {
   const [fileUploading, setFileUploading] = useState<boolean>(false);
   const [formData, setFormData] = useState<ProjectFormData>({
     projectName: "", status: true, startDate: "", endDate: "", expectedCalls: "",
+    completedCalls: "", // Add this field
     clientRequirements: [], screeningQuestions: [], file: null, geographyId: "", 
     companiesOfInterest: [],
     clientCompanies: [],
@@ -113,6 +125,7 @@ export default function EditProject() {
         startDate: projectData.timeline_start || "",
         endDate: projectData.timeline_end || "",
         expectedCalls: projectData.expected_calls || 0,
+        completedCalls: projectData.completed_calls || 0, // Add this field
         clientRequirements: clientRequirements,
         screeningQuestions: screeningQuestions,
         file: null,
@@ -228,6 +241,25 @@ export default function EditProject() {
       toast.error("End date must be after start date");
       return;
     }
+
+    // Validate completed calls
+    const expectedCalls = parseInt(formData.expectedCalls.toString());
+    const completedCalls = parseInt(formData.completedCalls.toString());
+    
+    if (isNaN(completedCalls)) {
+      toast.error("Completed calls must be a valid number");
+      return;
+    }
+    
+    if (completedCalls < 0) {
+      toast.error("Completed calls cannot be negative");
+      return;
+    }
+    
+    if (completedCalls > expectedCalls) {
+      toast.warning("Completed calls exceed expected calls");
+      // Continue anyway - not a blocker
+    }
     
     setLoading(true);
     
@@ -278,6 +310,7 @@ export default function EditProject() {
       timeline_start: formData.startDate,
       timeline_end: formData.endDate,
       expected_calls: formData.expectedCalls,
+      completed_calls: formData.completedCalls, // Add the completed calls field here
       client_requirements: formData.clientRequirements.join("\n\n"),
       general_screening_questions: formData.screeningQuestions.join("\n\n"),
       geography_id: formData.geographyId ? parseInt(formData.geographyId) : null
@@ -638,6 +671,12 @@ export default function EditProject() {
             formData={formData} 
             setFormData={setFormData} 
             geographies={geographies} 
+          />
+          
+          {/* Completed Calls - New Component */}
+          <CompletedCallsForm
+            formData={formData}
+            setFormData={setFormData}
           />
           
           {/* Companies of Interest */}
