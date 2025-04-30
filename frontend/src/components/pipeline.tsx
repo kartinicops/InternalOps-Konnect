@@ -136,16 +136,19 @@ const Pipeline = ({ project_id, onSelectExpert }: PipelineProps) => {
         throw new Error("Pipeline item not found");
       }
 
-      // Payload for published endpoint
+      // Payload for published endpoint - initial status is "Proposed" (status_id: 1)
+      // When moving from pipeline to published, set initial availability to TBC by leaving it null
       const publishedPayload = {
-        project_publish_id: null,
-        project_id: parseInt(project_id),
         expert_id: expertId,
-        user_id: 5, // Adjust as needed
-        status_id: 1,
-        angles: "",
+        project_id: parseInt(project_id),
+        user_id: 5, // Default user ID
+        status_id: 1, // Initial status is "Proposed" (1)
+        expert_availability: null, // Initially null/TBC
+        angles: "basic", // Default angles
         created_at: new Date().toISOString()
       };
+
+      console.log("Sending payload:", publishedPayload);
 
       // Post to published endpoint
       await API.post("/project_published/", publishedPayload, {
@@ -155,12 +158,12 @@ const Pipeline = ({ project_id, onSelectExpert }: PipelineProps) => {
         }
       });
 
-      // Delete from pipeline
+      // Delete from pipeline after successful movement to published
       await API.delete(`/project_pipeline/${pipelineItem.project_pipeline_id}/`, {
         withCredentials: true
       });
 
-      // Update local state
+      // Update local state - remove from pipeline list
       setPipelineExperts((prevExperts) => 
         prevExperts.filter((expert) => expert.expert_id !== expertId)
       );
@@ -177,9 +180,14 @@ const Pipeline = ({ project_id, onSelectExpert }: PipelineProps) => {
         message: error.message
       });
     
-      toast.error("Failed to move expert. Please try again.", {
+      // Show detailed error message
+      const errorMessage = error.response?.data?.expert_availability?.[0] || 
+                          error.response?.data?.message || 
+                          "Failed to move expert. Please try again.";
+      
+      toast.error(errorMessage, {
         position: "top-right",
-        autoClose: 3000,
+        autoClose: 5000,
       });
     } finally {
       setMovingExpert(null);

@@ -1,54 +1,49 @@
-import React, { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { FileText, Loader2 } from "lucide-react"
-import { generateExpertsPDF } from "@/lib/generate-expert-pdf"
-import { useSearchParams } from "next/navigation"
-import { toast } from "react-toastify"
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { FileText, Loader2 } from "lucide-react";
+import ExpertProfileGenerator from "@/lib/generate-expert-pdf";
+import { useSearchParams } from "next/navigation";
+import { toast } from "react-toastify";
 
-interface ExportExpertsButtonProps {
-  expertIds: number[]
-  disabled?: boolean
-}
-
-const ExportExpertsButton = ({ expertIds, disabled = false }: ExportExpertsButtonProps) => {
-  const [isExporting, setIsExporting] = useState(false)
-  const searchParams = useSearchParams()
-  const projectId = searchParams.get("id")
+const ExportExpertsButton = ({ expertIds, disabled = false }) => {
+  const [isExporting, setIsExporting] = useState(false);
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("id");
 
   const handleExport = async () => {
     if (expertIds.length === 0) {
-      toast.warn("Please select at least one expert to export")
-      return
+      toast.warn("Please select at least one expert to export");
+      return;
     }
 
-    setIsExporting(true)
+    setIsExporting(true);
     try {
       // Use the project ID in the PDF generation if available
-      const projectIdNumber = projectId ? parseInt(projectId) : null
-      const pdfBlob = await generateExpertsPDF(expertIds, projectIdNumber)
+      const projectIdNumber = projectId ? parseInt(projectId) : null;
+      const pdfBlob = await ExpertProfileGenerator(expertIds, projectIdNumber);
       
       // Create a URL for the blob
-      const url = URL.createObjectURL(pdfBlob)
+      const url = URL.createObjectURL(pdfBlob);
       
       // Create a temporary link and trigger download
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `expert-profiles-${new Date().toISOString().split("T")[0]}.pdf`
-      document.body.appendChild(link)
-      link.click()
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `expert-profiles-${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
       
       // Clean up
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
-      toast.success(`${expertIds.length} expert profile${expertIds.length > 1 ? 's' : ''} exported successfully`)
+      toast.success(`${expertIds.length} expert profile${expertIds.length > 1 ? 's' : ''} exported successfully`);
     } catch (error) {
-      console.error("Error exporting expert profiles:", error)
-      toast.error("Failed to export expert profiles. Please try again.")
+      console.error("Error exporting expert profiles:", error);
+      toast.error("Failed to export expert profiles. Please try again.");
     } finally {
-      setIsExporting(false)
+      setIsExporting(false);
     }
-  }
+  };
 
   return (
     <Button
@@ -69,7 +64,7 @@ const ExportExpertsButton = ({ expertIds, disabled = false }: ExportExpertsButto
         </>
       )}
     </Button>
-  )
-}
+  );
+};
 
-export default ExportExpertsButton
+export default ExportExpertsButton;

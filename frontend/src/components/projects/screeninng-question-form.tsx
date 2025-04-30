@@ -106,11 +106,12 @@ export default function ScreeningQuestionsForm({ formData, setFormData, projectI
         // Find the question object that matches this text
         const questionObj = questions.find(q => q.question === questionToRemove);
         
-        if (questionObj && questionObj.id) {
-          await API.delete(`/screening_question/${questionObj.id}/`);
+        // Using the correct property name for the ID (question_id from the API)
+        if (questionObj && questionObj.question_id) {
+          await API.delete(`/screening_question/${questionObj.question_id}/`);
           
           // Update local questions state
-          setQuestions(prev => prev.filter(q => q.id !== questionObj.id));
+          setQuestions(prev => prev.filter(q => q.question_id !== questionObj.question_id));
         }
       } catch (error) {
         console.error("Error removing question from API:", error);

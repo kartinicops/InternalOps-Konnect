@@ -175,8 +175,8 @@ class Project_published(models.Model):
     project_id = models.ForeignKey(Projects,on_delete=models.CASCADE, null=True, related_name="project_publish")
     status_id = models.ForeignKey(Published_statuses,on_delete=models.SET_NULL, null=True, related_name="project_publish")
     user_id = models.ForeignKey(Users,on_delete=models.SET_NULL, null=True, related_name="project_publish")
-    expert_availability = models.BooleanField(default=True) #true means avails, false means not available
-    #if user|PIC is deleted, the value will be null. Can be called from users through related_name
+    expert_availability = models.DateTimeField(null=True, blank=True)
+    #expert_availability = models.BooleanField(default=True) #true means avails, false means not available    #if user|PIC is deleted, the value will be null. Can be called from users through related_name
     angles = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)  # This will automatically store the creation timestamp
     

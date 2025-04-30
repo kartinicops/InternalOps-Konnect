@@ -22,6 +22,7 @@ class Experts(models.Model):
     phone_number = models.CharField(max_length=15, validators=[validate_phone_number], null=True, blank=True) #optional because not all expert give their phone num
     notes = models.CharField(max_length=300, null=True, blank=True) #optional
     email_confirmed = models.BooleanField(default=False)
+    number_of_credits = models.PositiveIntegerField(null=True)
 
     class Meta:
         db_table = "experts"

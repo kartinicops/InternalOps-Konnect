@@ -15,7 +15,17 @@ interface Expert {
   country_of_residence: string
   created_at: string
   status_id: number
-  expert_availability?: boolean
+}
+
+interface PublishedData {
+  project_publish_id: number
+  expert_id: number
+  project_id: number
+  user_id: number
+  status_id: number
+  expert_availability: string | null
+  angles: string
+  created_at: string
 }
 
 interface PublishedProps {
@@ -25,11 +35,11 @@ interface PublishedProps {
 
 const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
   const [publishedExperts, setPublishedExperts] = useState<Expert[]>([])
-  const [publishedData, setPublishedData] = useState<any[]>([])
+  const [publishedData, setPublishedData] = useState<PublishedData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedExpertIds, setSelectedExpertIds] = useState<number[]>([])
-  const [expertExperiences, setExpertExperiences] = useState<any[]>([]) // Store expert experiences
+  const [expertExperiences, setExpertExperiences] = useState<any[]>([])
 
   useEffect(() => {
     const fetchPublishedExperts = async () => {
@@ -43,12 +53,14 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
         })
 
         // Filter published data for this specific project
-        const filteredPublished = response.data.filter((item: any) => item.project_id === Number.parseInt(project_id))
+        const filteredPublished = response.data.filter(
+          (item: PublishedData) => item.project_id === Number.parseInt(project_id)
+        )
 
         setPublishedData(filteredPublished)
 
         // Get expert IDs from filtered published data
-        const expertIds = filteredPublished.map((item: any) => item.expert_id)
+        const expertIds = filteredPublished.map((item: PublishedData) => item.expert_id)
 
         if (expertIds.length > 0) {
           // Fetch experts for these specific IDs
@@ -58,21 +70,14 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
           })
 
           // Filter experts to match the IDs from published data
-          const filteredExperts = expertsResponse.data.filter((expert: Expert) => expertIds.includes(expert.expert_id))
-
-          // Enrich experts with availability from published data
-          const enrichedExperts = filteredExperts.map((expert: Expert) => {
-            const publishedInfo = filteredPublished.find((item: any) => item.expert_id === expert.expert_id)
-            return {
-              ...expert,
-              expert_availability: publishedInfo?.expert_availability || false,
-            }
-          })
-
+          const filteredExperts = expertsResponse.data.filter(
+            (expert: Expert) => expertIds.includes(expert.expert_id)
+          )
+          
+          setPublishedExperts(filteredExperts)
+          
           // Fetch expert experiences for these experts
           await fetchExpertExperiences(expertIds)
-
-          setPublishedExperts(enrichedExperts)
         } else {
           setPublishedExperts([])
         }
@@ -121,10 +126,10 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
     return sortedExperiences.length > 0 ? sortedExperiences[0].title : ''
   }
 
-  // Status dan availability helpers
+  // Status and availability helpers
   const getStatus = (expertId: number): string => {
     // Find the published entry for this expert
-    const publishedEntry = publishedData.find((item: any) => item.expert_id === expertId);
+    const publishedEntry = publishedData.find((item) => item.expert_id === expertId);
     
     // Get status_id from the published entry
     const statusId = publishedEntry?.status_id;
@@ -142,16 +147,19 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
     }
   }
 
-  const getAvailabilityBadge = (availability: boolean) => {
-    return availability ? (
-      <Badge className="bg-green-100 text-green-800">Available</Badge>
-    ) : (
-      <Badge className="bg-red-100 text-red-800">Not Available</Badge>
-    )
+  const getExpertAvailability = (expertId: number): string => {
+    const publishedEntry = publishedData.find((item) => item.expert_id === expertId)
+    
+    if (!publishedEntry?.expert_availability) {
+      return "-"
+    }
+    
+    // Remove "(Jakarta time)" from the display
+    return publishedEntry.expert_availability.replace(" (Jakarta time)", "")
   }
 
   const getAddedAt = (expertId: number): string => {
-    const publishedEntry = publishedData.find((item: any) => item.expert_id === expertId)
+    const publishedEntry = publishedData.find((item) => item.expert_id === expertId)
     return publishedEntry ? publishedEntry.created_at : ""
   }
 
@@ -237,7 +245,7 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
                     <Badge className="bg-green-100 text-green-800">{getStatus(expert.expert_id)}</Badge>
                   </TableCell>
                   <TableCell onClick={() => handleRowClick(expert.expert_id)}>
-                    {getAvailabilityBadge(expert.expert_availability || false)}
+                    {getExpertAvailability(expert.expert_id)}
                   </TableCell>
                 </TableRow>
               ))

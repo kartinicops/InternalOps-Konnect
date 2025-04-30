@@ -5,8 +5,7 @@ from .models import ExpertExperiences
 class ExpertsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Experts
-        fields = ["expert_id", "full_name", "linkedIn_profile_link", "industry", "country_of_residence",  "email", "expert_cost", "user_id", "phone_number", "notes", "email_confirmed"]
-
+        fields = ["expert_id", "full_name", "linkedIn_profile_link", "industry", "country_of_residence",  "email", "expert_cost", "user_id", "phone_number", "notes", "email_confirmed", "number_of_credits"]
 class ExperiencesSerializer(serializers.ModelSerializer):
     #settings to store only month and year
     start_date = serializers.DateField(

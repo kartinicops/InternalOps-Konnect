@@ -43,9 +43,14 @@ class ProjectExpertsSerializer(serializers.ModelSerializer):
 
 
 class ProjectPublishedSerializer(serializers.ModelSerializer):
+    #to format date time into desired template
+    expert_availability = serializers.DateTimeField(
+    format="%A, %d %B %Y at %I %p (Jakarta time)"
+)
+
     class Meta:
         model = Project_published
-        fields = ["project_publish_id", "expert_id", "project_id", "user_id", "status_id", "expert_availability", "angles", "created_at"]        
+        fields = ["project_publish_id", "expert_id", "project_id", "user_id", "status_id", "expert_availability", "angles", "created_at"]
 class PublishedStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Published_statuses
