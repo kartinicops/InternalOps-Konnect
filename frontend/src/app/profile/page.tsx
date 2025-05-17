@@ -6,70 +6,66 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Nav } from "@/components/nav";
 import API from "@/services/api";
-import { AuthService } from "@/app/login/page"; // Import AuthService
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      // Check authentication status first
-      if (!AuthService.isAuthenticated()) {
-        router.replace("/login");
-        return;
-      }
+  // useEffect(() => {
+  //   const fetchProfile = async () => {
+  //     // Check authentication status first
+  //     // if (!AuthService.isAuthenticated()) {
+  //     //   router.replace("/login");
+  //     //   return;
+  //     // }
 
-      try {
-        // Get CSRF token before making the request
-        const csrfToken = await AuthService.getCsrfToken();
+  //     try {
+  //       // Get CSRF token before making the request
+  //       // const csrfToken = await AuthService.getCsrfToken();
 
-        // Make the profile request with credentials
-        const response = await API.get("/api/profile/", {
-          headers: {
-            "X-CSRFToken": csrfToken,
-          },
-          withCredentials: true,
-        });
+  //       // Make the profile request with credentials
+  //       const response = await API.get("/api/profile/", {
+  //         headers: {
+  //           "Authorization": sessionStorage.getItem("auth_token"),
+  //         },
+  //         withCredentials: true,
+  //       });
 
-        // If successful, update user state
-        setUser(response.data);
-        setLoading(false);
-      } catch (err: any) {
-        // Detailed error handling
-        if (err.response) {
-          // The request was made and the server responded with a status code
-          if (err.response.status === 401 || err.response.status === 403) {
-            // Unauthorized or forbidden - clear auth and redirect to login
-            AuthService.logout();
-            router.replace("/login");
-          } else {
-            setError(`Failed to load profile: ${err.response.data.detail || 'Unknown error'}`);
-          }
-        } else if (err.request) {
-          // The request was made but no response was received
-          setError("No response from server. Please check your internet connection.");
-        } else {
-          // Something happened in setting up the request
-          setError("An unexpected error occurred. Please try again.");
-        }
-        setLoading(false);
-      }
-    };
+  //       // If successful, update user state
+  //       setUser(response.data);
+  //       setLoading(false);
+  //     } catch (err: any) {
+  //       // Detailed error handling
+  //       if (err.response) {
+  //         // The request was made and the server responded with a status code
+  //         if (err.response.status === 401 || err.response.status === 403) {
+  //           // Unauthorized or forbidden - clear auth and redirect to login
+  //           AuthService.logout();
+  //           router.replace("/login");
+  //         } else {
+  //           setError(`Failed to load profile: ${err.response.data.detail || 'Unknown error'}`);
+  //         }
+  //       } else if (err.request) {
+  //         // The request was made but no response was received
+  //         setError("No response from server. Please check your internet connection.");
+  //       } else {
+  //         // Something happened in setting up the request
+  //         setError("An unexpected error occurred. Please try again.");
+  //       }
+  //       setLoading(false);
+  //     }
+  //   };
 
-    fetchProfile();
-  }, [router]);
+  //   fetchProfile();
+  // }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      await AuthService.logout();
-      router.replace("/login");
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-  };
+  
+  const handleLogout = () => {
+    sessionStorage.removeItem("auth_token")
+    router.push("/login")
+  }
 
   if (loading) {
     return (

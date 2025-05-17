@@ -30,7 +30,7 @@ export function Nav({ isProjectDetail = false, projectName }: NavProps) {
   const showProfileButton = pathname !== "/login"
 
   const handleLogout = () => {
-    localStorage.removeItem("auth_token")
+    sessionStorage.removeItem("auth_token")
     localStorage.removeItem("user_name")
     setIsLoggedIn(false)
     router.push("/login")

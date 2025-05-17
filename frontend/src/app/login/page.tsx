@@ -15,25 +15,13 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // Improved CSRF token retrieval
-  const getCsrfToken = () => {
-    return document.cookie
-      .split('; ')
-      .find(row => row.startsWith('csrftoken='))
-      ?.split('=')[1];
-  };
+  const [loading, setLoading] = useState(false);
 
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    const csrfToken = getCsrfToken();
-    if (!csrfToken) {
-      setError("CSRF token is missing. Please refresh the page.");
-      return;
-    }
+    setLoading(true)
 
     try {
       const response = await API.post("/api/login/", 
@@ -44,19 +32,18 @@ export default function LoginPage() {
         {
           headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken,
           },
           withCredentials: true,
         }
       );
 
       if (response.status === 200) {
+        setLoading(false)
         // Store authentication information more securely
         const { token, user } = response.data;
         
         // Use sessionStorage for more secure token storage
         sessionStorage.setItem("auth_token", token);
-        sessionStorage.setItem("user_info", JSON.stringify(user));
         
         // Set a flag to indicate the user is authenticated
         localStorage.setItem("is_authenticated", "true");
@@ -69,69 +56,25 @@ export default function LoginPage() {
       // More detailed error handling
       if (err.response) {
         // The request was made and the server responded with a status code
-        setError(err.response.data.detail || "Login failed. Please check your credentials.");
-      } else if (err.request) {
-        // The request was made but no response was received
-        setError("No response from server. Please check your internet connection.");
+        setError(err.response.data.error || "Login failed. Backend belum ngasih message");
       } else {
         // Something happened in setting up the request
         setError("An unexpected error occurred. Please try again.");
       }
       setPassword("");
+      setLoading(false)
     }
   };
 
-  // Logout function (can be used globally)
-  const handleLogout = async () => {
-    try {
-      const csrfToken = getCsrfToken();
-      
-      await API.post("/api/logout/", 
-        {},
-        {
-          headers: {
-            "X-CSRFToken": csrfToken,
-          },
-          withCredentials: true,
-        }
-      );
+ 
 
-      // Clear all authentication-related storage
-      sessionStorage.removeItem("auth_token");
-      sessionStorage.removeItem("user_info");
-      localStorage.removeItem("is_authenticated");
-
-      // Redirect to login page
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed", error);
-      // Even if logout API call fails, clear local storage
-      sessionStorage.clear();
-      localStorage.removeItem("is_authenticated");
-      router.push("/login");
-    }
-  };
-
-  // Check authentication status on component mount
-  useEffect(() => {
-    const checkAuthStatus = () => {
-      const isAuthenticated = localStorage.getItem("is_authenticated") === "true";
-      const authToken = sessionStorage.getItem("auth_token");
-
-      if (isAuthenticated && authToken) {
-        // Optional: Validate token with backend
-        // You might want to add an endpoint to validate the token
-        return true;
-      }
-      return false;
-    };
-
-    // If already authenticated, redirect to profile
-    if (checkAuthStatus()) {
-      router.replace("/profile");
-    }
-  }, [router]);
-
+ if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gray-100">
       <Nav />
