@@ -31,7 +31,6 @@ export function Nav({ isProjectDetail = false, projectName }: NavProps) {
 
   const handleLogout = () => {
     sessionStorage.removeItem("auth_token")
-    localStorage.removeItem("user_name")
     setIsLoggedIn(false)
     router.push("/login")
   }
