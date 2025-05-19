@@ -9,13 +9,17 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Nav } from "@/components/nav"
-import { Loader2, Calendar, ArrowLeft, MapPin, Briefcase, Mail, Phone, Plus, X, User, CheckCircle2 } from "lucide-react"
+import { Loader2, Calendar, ArrowLeft, MapPin, Briefcase, Mail, Phone, Plus, X, User } from "lucide-react"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import { FaLinkedin } from "react-icons/fa"
+// Import our custom CountriesSelect component
 import { CountriesSelect } from "@/components/countries-select"
-import { Badge } from "@/components/ui/badge"
-import { ExpertAvailabilitySection } from "@/components/expert-availability-section"
+import EditAvailabilitySection from "@/components/edit-availability-section"
+
+// Import the ExpertStatusManager from its own file
+// Remove this line:
+// import { ExpertStatusManager } from "@/components/expert-status-manager";
 
 export default function EditExpert() {
   const router = useRouter()
@@ -43,12 +47,17 @@ export default function EditExpert() {
     { title: "", company_name: "", start_date: "", end_date: "", id: Date.now(), experience_id: null },
   ])
 
-  // Add new state variables for project published and expert availabilities after the existing state declarations
-  const [projectPublished, setProjectPublished] = useState(null)
-  const [expertAvailabilities, setExpertAvailabilities] = useState([])
-  const [showStatusSection, setShowStatusSection] = useState(false)
-  const [availabilitiesToUpdate, setAvailabilitiesToUpdate] = useState<any[]>([])
+  // We don't need publishedData state anymore as the ExpertStatusManager fetches its own data
 
+  // Handle status change function
+  // Remove this function:
+  // const handleStatusChange = (statusData) => {
+  //   console.log("Status/availability changed:", statusData);
+  //   // No need to update local state as the ExpertStatusManager handles its own state
+  //   // We just need this for notification purposes
+  // };
+
+  // Fetch the expert data on component mount
   useEffect(() => {
     const fetchExpertData = async () => {
       if (!expertId) {
@@ -198,10 +207,6 @@ export default function EditExpert() {
     setCareerEntries(updatedEntries)
   }
 
-  const handleAvailabilitiesChange = (updatedAvailabilities) => {
-    setAvailabilitiesToUpdate(updatedAvailabilities)
-  }
-
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setSaving(true)
@@ -233,17 +238,6 @@ export default function EditExpert() {
 
     if (validCareerEntries.length === 0) {
       toast.error("Please add at least one valid career entry")
-      setSaving(false)
-      return
-    }
-
-    // Validate availability times
-    const invalidAvailabilities = availabilitiesToUpdate.filter(
-      (a) => !a.isDeleted && (!a.available_time || a.available_time.trim() === ""),
-    )
-
-    if (invalidAvailabilities.length > 0) {
-      toast.error("Please select a valid date and time for all availability slots")
       setSaving(false)
       return
     }
@@ -299,130 +293,6 @@ export default function EditExpert() {
       // Wait for all career entry operations to complete
       await Promise.all(careerPromises)
 
-      // Process availability updates
-      if (availabilitiesToUpdate.length > 0) {
-        try {
-          // Handle new availabilities
-          const newAvailabilities = availabilitiesToUpdate.filter((a) => a.isNew && !a.isDeleted)
-
-          // Debug log to see what we're sending
-          console.log(
-            "New availabilities to create:",
-            newAvailabilities.map((a) => ({
-              project_publish_id: a.project_publish_id,
-              available_time: a.available_time,
-            })),
-          )
-
-          // Process each new availability individually to better track errors
-          for (const availability of newAvailabilities) {
-            try {
-              // Create a clean payload with only the required fields
-              const payload = {
-                project_publish_id: availability.project_publish_id,
-                available_time: availability.available_time,
-              }
-
-              console.log("Sending individual availability:", payload)
-
-              // Use our API route instead of direct API call
-              const response = await fetch("/api/expert-availabilities", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-              })
-
-              if (!response.ok) {
-                const errorData = await response.json()
-                console.error("Error creating availability:", errorData)
-                throw new Error(`Failed to create availability: ${JSON.stringify(errorData)}`)
-              }
-            } catch (error) {
-              console.error("Error processing individual availability:", error)
-              throw error
-            }
-          }
-
-          // Handle updated availabilities
-          const updatedAvailabilities = availabilitiesToUpdate.filter(
-            (a) => !a.isNew && !a.isDeleted && a.expert_availability_id,
-          )
-
-          // Debug log to see what we're sending
-          console.log(
-            "Availabilities to update:",
-            updatedAvailabilities.map((a) => ({
-              id: a.expert_availability_id,
-              project_publish_id: a.project_publish_id,
-              available_time: a.available_time,
-            })),
-          )
-
-          // Process each update individually
-          for (const availability of updatedAvailabilities) {
-            try {
-              // Create a clean payload with only the required fields
-              const payload = {
-                expert_availability_id: availability.expert_availability_id,
-                project_publish_id: availability.project_publish_id,
-                available_time: availability.available_time,
-              }
-
-              console.log("Updating individual availability:", payload)
-
-              // Use our API route instead of direct API call
-              const response = await fetch("/api/expert-availabilities", {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-              })
-
-              if (!response.ok) {
-                const errorData = await response.json()
-                console.error("Error updating availability:", errorData)
-                throw new Error(`Failed to update availability: ${JSON.stringify(errorData)}`)
-              }
-            } catch (error) {
-              console.error("Error processing individual availability update:", error)
-              throw error
-            }
-          }
-
-          // Handle deleted availabilities
-          const deletedAvailabilities = availabilitiesToUpdate.filter((a) => a.isDeleted && a.expert_availability_id)
-
-          // Process each deletion individually
-          for (const availability of deletedAvailabilities) {
-            try {
-              console.log("Deleting availability:", availability.expert_availability_id)
-
-              // Use our API route instead of direct API call
-              const response = await fetch(`/api/expert-availabilities?id=${availability.expert_availability_id}`, {
-                method: "DELETE",
-              })
-
-              if (!response.ok) {
-                const errorData = await response.json()
-                console.error("Error deleting availability:", errorData)
-                throw new Error(`Failed to delete availability: ${JSON.stringify(errorData)}`)
-              }
-            } catch (error) {
-              console.error("Error processing individual availability deletion:", error)
-              throw error
-            }
-          }
-        } catch (error) {
-          console.error("Error updating availabilities:", error)
-          toast.error("Failed to update availability times. Please check the format.")
-          setSaving(false)
-          return
-        }
-      }
-
       toast.success("Expert successfully updated!")
 
       // Redirect after success
@@ -438,7 +308,6 @@ export default function EditExpert() {
 
       // Handle specific errors
       if (error.response) {
-        console.error("Error response data:", error.response.data)
         if (error.response.status === 400 && error.response.data.message?.includes("email")) {
           toast.error("An expert with this email already exists")
         } else {
@@ -454,44 +323,6 @@ export default function EditExpert() {
       setSaving(false)
     }
   }
-
-  // Add this to the fetchExpertData function after the existing API calls
-  // Inside the fetchExpertData function, after fetching other data
-  const checkProjectPublished = async () => {
-    try {
-      // Check if the expert is in project_published for the current project
-      const projectPublishedResponse = await API.get(
-        `/project_published/?expert_id=${expertId}&project_id=${currentProjectId}`,
-      )
-
-      if (projectPublishedResponse.data && projectPublishedResponse.data.length > 0) {
-        setProjectPublished(projectPublishedResponse.data[0])
-        setShowStatusSection(true)
-
-        // If we have a project_publish_id, fetch availabilities
-        const publishId = projectPublishedResponse.data[0].project_publish_id
-        const availabilitiesResponse = await API.get(`/expert_availabilities/?project_publish_id=${publishId}`)
-
-        if (availabilitiesResponse.data && availabilitiesResponse.data.length > 0) {
-          setExpertAvailabilities(availabilitiesResponse.data)
-        }
-      } else {
-        setShowStatusSection(false)
-      }
-    } catch (error) {
-      console.error("Error fetching project published data:", error)
-      setShowStatusSection(false)
-    }
-  }
-
-  const currentProjectId = projectId
-
-  // Call this function if we have both expertId and currentProjectId
-  useEffect(() => {
-    if (expertId && currentProjectId) {
-      checkProjectPublished()
-    }
-  }, [expertId, currentProjectId])
 
   // Show loading state
   if (loading) {
@@ -654,6 +485,25 @@ export default function EditExpert() {
                       placeholder="Enter expert biography or additional notes..."
                       className="w-full min-h-[120px] bg-white rounded-lg p-3 pl-3 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow resize-y border border-gray-300 focus:border-blue-300 focus:outline-none"
                     />
+                    {/* <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="absolute left-3 top-3 h-4 w-4 text-gray-400"
+                    >
+                      <line x1="8" y1="6" x2="21" y2="6"></line>
+                      <line x1="8" y1="12" x2="21" y2="12"></line>
+                      <line x1="8" y1="18" x2="21" y2="18"></line>
+                      <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                      <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                      <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg> */}
                   </div>
                   <p className="text-xs text-gray-500 ml-1">
                     Provide a short biography or any additional information about the expert
@@ -951,78 +801,8 @@ export default function EditExpert() {
             </CardContent>
           </Card>
 
-          {/* Status Section - Only shown if expert is in project_published */}
-          {showStatusSection && (
-            <Card className="shadow-sm border border-gray-100 overflow-hidden rounded-xl bg-gradient-to-br from-white to-blue-50">
-              <CardHeader className="bg-white border-b border-gray-100 py-4 px-6">
-                <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
-                  <div className="w-1 h-5 bg-blue-600 mr-3 rounded-full"></div>
-                  <CheckCircle2 className="h-4 w-4 mr-2 text-blue-600" />
-                  Project Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 relative">
-                {/* Background decorative elements */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-100 rounded-full opacity-20 -mr-20 -mt-20"></div>
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-200 rounded-full opacity-10 -ml-16 -mb-16"></div>
-
-                <div className="relative z-10">
-                  {projectPublished ? (
-                    <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-gray-200">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Status:</span>
-                          <Badge
-                            className={
-                              projectPublished.status_id_id === 1
-                                ? "bg-green-100 text-green-800"
-                                : projectPublished.status_id_id === 2
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : projectPublished.status_id_id === 3
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {projectPublished.status_id_id === 1
-                              ? "Approved"
-                              : projectPublished.status_id_id === 2
-                                ? "Pending"
-                                : projectPublished.status_id_id === 3
-                                  ? "Rejected"
-                                  : "Unknown"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Project Publish ID:</span>
-                          <span className="text-sm text-gray-600">{projectPublished.project_publish_id}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Created At:</span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(projectPublished.created_at).toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Angles:</span>
-                          <span className="text-sm text-gray-600">{projectPublished.angles || "N/A"}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">No status information available</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {showStatusSection && projectPublished?.project_publish_id && (
-            <ExpertAvailabilitySection
-              projectPublishId={projectPublished.project_publish_id}
-              initialAvailabilities={expertAvailabilities}
-              onAvailabilitiesChange={handleAvailabilitiesChange}
-            />
-          )}
+          {/* Expert Availability Section */}
+          <EditAvailabilitySection expertId={expertId} projectId={projectId} />
 
           {/* Form Actions */}
           <div className="flex justify-end gap-4 pt-4">
