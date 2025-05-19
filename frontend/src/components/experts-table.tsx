@@ -338,7 +338,7 @@ export function ExpertsTable() {
                 return (
                   <TableRow
                     key={expert.id}
-                    className="cursor-pointer transition-colors hover:bg-blue-50 border-b border-blue-50"
+                    className="cursor-pointer transition-colors hover:bg-gray-50 border-b border-blue-50"
                     onClick={() => setSelectedExpert(expert)}
                   >
                     <TableCell>
@@ -349,19 +349,19 @@ export function ExpertsTable() {
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 pr-8">
                         <div>
                           <div className="font-medium text-gray-900">{expert.fullName}</div>
                           <div className="text-sm text-gray-500">{expert.email}</div>
                         </div>
-                        {!hasCurrent && (
+                        {/* {!hasCurrent && (
                           <Badge
                             variant="secondary"
                             className="ml-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-full text-xs"
                           >
                             Former
                           </Badge>
-                        )}
+                        )} */}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -387,15 +387,7 @@ export function ExpertsTable() {
                     <TableCell className="font-medium text-blue-700">${expert.expertCost.toLocaleString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-3" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"
-                          onClick={() => setSelectedExpert(expert)}
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">View</span>
-                        </Button>
+
                         <Link
                           href={`/edit-expert?id=${expert.id}`}
                           passHref

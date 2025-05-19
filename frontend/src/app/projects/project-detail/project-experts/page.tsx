@@ -20,7 +20,7 @@ const ProjectExpertsPage = () => {
   useEffect(() => {
     const fetchProjectName = async () => {
       try {
-        const response = await API.get(`/projects/${projectId}/`, { withCredentials: true })
+        const response = await API.get(`/projects/${projectId}/`)
         setProjectName(response.data.project_name)
       } catch (error) {
         console.error("Error fetching project name:", error)

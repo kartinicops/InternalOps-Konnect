@@ -43,7 +43,7 @@ export default function LoginPage() {
         const { token, user } = response.data;
         
         // Use sessionStorage for more secure token storage
-        sessionStorage.setItem("auth_token", token);
+        sessionStorage.setItem("auth_token", `Token ${token}`);
         
         // Set a flag to indicate the user is authenticated
         localStorage.setItem("is_authenticated", "true");

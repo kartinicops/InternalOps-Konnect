@@ -20,6 +20,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import API from "@/services/api"
+import { getAuthHeader } from "@/services/auth-header";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,15 +67,20 @@ export default function ProjectsPage() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        await API.get("/api/csrf/")
-        const response = await API.get("/projects/", { withCredentials: true })
+        const response = await API.get("/projects/")
+        
         const projectsData = response.data
         setProjects(projectsData)
 
         // Fetch clients and geographies
         const fetchClients = async () => {
           try {
-            const clientResponse = await API.get("/project_client_company/", { withCredentials: true })
+            const clientResponse = await API.get("/project_client_company/", {
+              headers: {
+                Authorization: sessionStorage.getItem("auth_token") || "",
+              },
+            })
+
             const clientData = clientResponse.data.reduce((acc: Record<number, string>, client: any) => {
               acc[client.client_company_id] = client.company_name
               return acc
@@ -86,7 +93,7 @@ export default function ProjectsPage() {
 
         const fetchGeographies = async () => {
           try {
-            const geoResponse = await API.get("/projects_geography/", { withCredentials: true })
+            const geoResponse = await API.get("/projects_geography/")
             const geoData = geoResponse.data.reduce((acc: Record<number, string>, geo: any) => {
               acc[geo.geography_id] = geo.country
               return acc
@@ -467,109 +474,72 @@ export default function ProjectsPage() {
 
           {/* Pagination */}
           {filteredAndSortedProjects.length > 0 && (
-            <div className="flex items-center justify-between border-t border-gray-200 px-4 py-4 sm:px-6">
-              <div className="flex flex-1 justify-between sm:hidden">
-                <Button
-                  onClick={() => paginate(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  variant="outline"
-                  className="relative inline-flex items-center rounded-full px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Previous
-                </Button>
-                <Button
-                  onClick={() => paginate(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  variant="outline"
-                  className="relative ml-3 inline-flex items-center rounded-full px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Next
-                </Button>
-              </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{" "}
-                    <span className="font-medium">{Math.min(indexOfLastItem, filteredAndSortedProjects.length)}</span>{" "}
-                    of <span className="font-medium">{filteredAndSortedProjects.length}</span> results
-                  </p>
-                </div>
-                <div>
-                  <nav className="isolate inline-flex rounded-full shadow-sm" aria-label="Pagination">
-                    <Button
-                      onClick={() => paginate(1)}
-                      disabled={currentPage === 1}
-                      variant="outline"
-                      className="relative inline-flex items-center rounded-l-full px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <span className="sr-only">First</span>
-                      <ChevronLeft className="h-5 w-5" />
-                      <ChevronLeft className="h-5 w-5 -ml-4" />
-                    </Button>
-                    <Button
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      variant="outline"
-                      className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <span className="sr-only">Previous</span>
-                      <ChevronLeft className="h-5 w-5" />
-                    </Button>
+  <div className="flex items-center justify-between px-4 py-3 mt-4 bg-white rounded-xl shadow-sm border border-blue-100">
+    <div className="text-sm text-gray-600">
+      Showing{" "}
+      <span className="font-medium text-blue-700">{indexOfFirstItem + 1}</span> to{" "}
+      <span className="font-medium text-blue-700">{Math.min(indexOfLastItem, filteredAndSortedProjects.length)}</span>{" "}
+      of <span className="font-medium text-blue-700">{filteredAndSortedProjects.length}</span> projects
+    </div>
 
-                    {/* Page numbers */}
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      // Show pages around current page
-                      let pageNum
-                      if (totalPages <= 5) {
-                        pageNum = i + 1
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i
-                      } else {
-                        pageNum = currentPage - 2 + i
-                      }
+    <div className="flex gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => paginate(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="h-9 w-9 p-0 rounded-full border border-blue-200 bg-white text-blue-500 hover:bg-blue-50 disabled:opacity-40"
+      >
+        &lt;
+      </Button>
 
-                      return (
-                        <Button
-                          key={pageNum}
-                          onClick={() => paginate(pageNum)}
-                          aria-current={currentPage === pageNum ? "page" : undefined}
-                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 focus:z-20 focus:outline-offset-0 ${
-                            currentPage === pageNum
-                              ? "bg-blue-600 text-white hover:bg-blue-700 focus:z-20"
-                              : "text-gray-900 hover:bg-gray-50"
-                          }`}
-                        >
-                          {pageNum}
-                        </Button>
-                      )
-                    })}
+      {Array.from({ length: totalPages }, (_, i) => i + 1)
+        .filter(
+          (page) =>
+            page === 1 ||
+            page === totalPages ||
+            (page >= currentPage - 1 && page <= currentPage + 1)
+        )
+        .reduce((acc: (number | "...")[], page, i, array) => {
+          if (i > 0 && page !== array[i - 1] + 1) {
+            acc.push("...")
+          }
+          acc.push(page)
+          return acc
+        }, [])
+        .map((page, idx) =>
+          page === "..." ? (
+            <span key={`ellipsis-${idx}`} className="flex items-center justify-center h-9 w-9 text-blue-400">…</span>
+          ) : (
+            <Button
+              key={page}
+              variant={currentPage === page ? "default" : "outline"}
+              size="sm"
+              onClick={() => paginate(page)}
+              className={`h-9 w-9 p-0 rounded-full ${
+                currentPage === page
+                  ? "bg-blue-500 text-white border-0 shadow-md"
+                  : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"
+              }`}
+            >
+              {page}
+            </Button>
+          )
+        )}
 
-                    <Button
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      variant="outline"
-                      className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <span className="sr-only">Next</span>
-                      <ChevronRight className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      onClick={() => paginate(totalPages)}
-                      disabled={currentPage === totalPages}
-                      variant="outline"
-                      className="relative inline-flex items-center rounded-r-full px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <span className="sr-only">Last</span>
-                      <ChevronRight className="h-5 w-5" />
-                      <ChevronRight className="h-5 w-5 -ml-4" />
-                    </Button>
-                  </nav>
-                </div>
-              </div>
-            </div>
-          )}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => paginate(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="h-9 w-9 p-0 rounded-full border border-blue-200 bg-white text-blue-500 hover:bg-blue-50 disabled:opacity-40"
+      >
+        &gt;
+      </Button>
+    </div>
+  </div>
+)}
+
         </div>
       </main>
 

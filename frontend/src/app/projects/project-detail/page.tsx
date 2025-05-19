@@ -36,7 +36,7 @@ import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import Pipeline from "@/components/pipeline"
 import Published from "@/components/published"
-import ExpertDetailPopup from "@/components/expert-detail-popup"
+import ExpertDetailPopup from "@/app/projects/project-detail/expert-detail-popup"
 import type { Project, ProjectFile } from "@/types/project-detail"
 
 export default function ProjectDetailPage() {
@@ -198,8 +198,7 @@ export default function ProjectDetailPage() {
 // Example of updated screening questions fetch logic within useEffect
 const fetchProject = async () => {
   try {
-    await API.get("/api/csrf/")
-    const response = await API.get(`/projects/${id}/`, { withCredentials: true })
+    const response = await API.get(`/projects/${id}/`)
     const projectData = response.data
 
     // Fetch all related data in parallel
@@ -213,8 +212,11 @@ const fetchProject = async () => {
       { key: "screening_questions", url: `/screening_question/?project_id=${id}` }, // This already includes project_id filter
     ]
 
-    const results = await Promise.allSettled(endpoints.map((endpoint) => API.get(endpoint.url)))
-
+    const results = await Promise.allSettled(
+      endpoints.map((endpoint) => API.get(endpoint.url))
+    )
+    
+    
     results.forEach((result, index) => {
       const { key } = endpoints[index]
       if (result.status === "fulfilled") {

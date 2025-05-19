@@ -68,7 +68,7 @@ export function ExpertModal({ expert, isOpen, onClose, onAddToProject, pipeline,
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         closeButton={false} 
-        className="max-w-3xl p-0 rounded-2xl h-[85vh] overflow-hidden shadow-lg border-0 bg-white flex flex-col"
+        className="max-w-4xl p-0 rounded-2xl h-[85vh] overflow-hidden shadow-lg border-0 bg-white flex flex-col"
       >
         {/* Accessibility title */}
         <DialogTitle className="sr-only">Expert Profile: {expert.fullName}</DialogTitle>
@@ -204,7 +204,7 @@ export function ExpertModal({ expert, isOpen, onClose, onAddToProject, pipeline,
                 {[
                   { id: "career", label: "Experience", icon: Briefcase },
                   { id: "projects", label: "Projects", icon: FolderOpen },
-                  { id: "notes", label: "Notes", icon: FileText }
+                  { id: "notes", label: "Bio", icon: FileText }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -262,10 +262,11 @@ export function ExpertModal({ expert, isOpen, onClose, onAddToProject, pipeline,
                                         <h3 className="text-base font-semibold text-gray-800">{job.title}</h3>
                                         <p className="text-blue-600 text-sm">{job.company_name}</p>
                                       </div>
-                                      <div className="flex items-center text-xs text-gray-500 bg-blue-50 px-3 py-1 rounded-full">
+                                      <div className="flex items-center text-xs text-gray-500 bg-blue-50 px-3 py-1 rounded-full my-auto">
                                         <Calendar className="h-3 w-3 mr-1.5 text-blue-400" />
                                         {job.dateRange}
                                       </div>
+
                                     </div>
                                   </div>
                                 </div>
@@ -337,7 +338,7 @@ export function ExpertModal({ expert, isOpen, onClose, onAddToProject, pipeline,
                               <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-500 mr-3">
                                 <FileText className="h-4 w-4" />
                               </div>
-                              <h3 className="text-lg font-semibold text-gray-800">Expert Notes</h3>
+                              <h3 className="text-lg font-semibold text-gray-800">Expert Bio</h3>
                             </div>
                             <div className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed pl-11">
                               {expert.notes}
@@ -347,7 +348,7 @@ export function ExpertModal({ expert, isOpen, onClose, onAddToProject, pipeline,
                       ) : (
                         <div className="flex flex-col items-center justify-center py-12 rounded-lg border border-blue-100 bg-blue-50">
                           <FileText className="h-12 w-12 text-blue-300 mb-3" />
-                          <p className="text-gray-500 text-sm">No notes available for this expert</p>
+                          <p className="text-gray-500 text-sm">No bio available for this expert</p>
                         </div>
                       )}
                     </div>

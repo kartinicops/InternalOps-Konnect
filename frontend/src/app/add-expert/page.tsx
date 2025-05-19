@@ -54,11 +54,6 @@ export default function AddExpert() {
   }
 
   const addCareerEntry = () => {
-    // Limit to a maximum of 5 entries
-    if (careerEntries.length >= 5) {
-      toast.info("Maximum of 5 positions allowed")
-      return
-    }
 
     // Use functional state update to ensure we're working with the latest state
     setCareerEntries((prevEntries) => [
@@ -107,7 +102,8 @@ export default function AddExpert() {
         setLoading(false)
         return
       }
-  
+      console.log("expertData", expertData)
+
       const expertResponse = await API.post("/experts/", expertData)
       const expertId = expertResponse.data.expert_id
   

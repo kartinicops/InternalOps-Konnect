@@ -1,7 +1,7 @@
-'use client'
+"use client"
 
 import { Building } from "lucide-react"
-import { useState, useEffect, ChangeEvent, FormEvent } from "react"
+import { useState, useEffect, type ChangeEvent, type FormEvent } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import API from "@/services/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,12 +12,13 @@ import { Nav } from "@/components/nav"
 import { Loader2, Calendar, ArrowLeft, MapPin, Briefcase, Mail, Phone, Plus, X, User } from "lucide-react"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
-import { FaLinkedin } from 'react-icons/fa'
+import { FaLinkedin } from "react-icons/fa"
 // Import our custom CountriesSelect component
 import { CountriesSelect } from "@/components/countries-select"
 
 // Import the ExpertStatusManager from its own file
-import { ExpertStatusManager } from "@/components/expert-status-manager";
+// Remove this line:
+// import { ExpertStatusManager } from "@/components/expert-status-manager";
 
 export default function EditExpert() {
   const router = useRouter()
@@ -48,11 +49,12 @@ export default function EditExpert() {
   // We don't need publishedData state anymore as the ExpertStatusManager fetches its own data
 
   // Handle status change function
-  const handleStatusChange = (statusData) => {
-    console.log("Status/availability changed:", statusData);
-    // No need to update local state as the ExpertStatusManager handles its own state
-    // We just need this for notification purposes
-  };
+  // Remove this function:
+  // const handleStatusChange = (statusData) => {
+  //   console.log("Status/availability changed:", statusData);
+  //   // No need to update local state as the ExpertStatusManager handles its own state
+  //   // We just need this for notification purposes
+  // };
 
   // Fetch the expert data on component mount
   useEffect(() => {
@@ -136,7 +138,7 @@ export default function EditExpert() {
     
     setFormData(prev => ({ 
       ...prev, 
-      [id]: type === "number" ? parseFloat(value) : value 
+      [id]: type === "number" ? Number.parseFloat(value) : value 
     }))
   }
 
@@ -746,13 +748,6 @@ export default function EditExpert() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Expert Status Card - Show for all experts, but filter by projectId if coming from a project */}
-          <ExpertStatusManager 
-            expertId={expertId}
-            projectId={projectId}
-            onStatusChange={handleStatusChange}
-          />
 
           {/* Form Actions */}
           <div className="flex justify-end gap-4 pt-4">

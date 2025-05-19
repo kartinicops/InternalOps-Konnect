@@ -40,6 +40,12 @@ interface ScreeningQuestion {
   answer: string
 }
 
+interface ExpertAvailability {
+  expert_availability_id: number
+  project_publish_id: number
+  available_time: string
+}
+
 // Format date from API (e.g., "01-2017" to "Jan 2017")
 const formatDate = (dateString: string | null): string => {
   if (!dateString) return "Present"
@@ -217,10 +223,32 @@ const fetchExpertData = async (expertId: number, projectId: number | null = null
       screeningQuestions = screeningResponse.data
     }
 
+    // Fetch expert availabilities if projectId is provided
+    let expertAvailabilities: ExpertAvailability[] = []
+    if (projectId) {
+      try {
+        // First, get the project_publish_id for this expert and project
+        const publishedResponse = await API.get(`/project_published/?expert_id=${expertId}&project_id=${projectId}`)
+        const publishedData = publishedResponse.data
+        
+        if (publishedData && publishedData.length > 0) {
+          const projectPublishId = publishedData[0].project_publish_id
+          
+          // Then fetch availabilities using the project_publish_id
+          const availabilityResponse = await API.get(`/expert_availabilities/?project_publish_id=${projectPublishId}`)
+          expertAvailabilities = availabilityResponse.data || []
+        }
+      } catch (error) {
+        console.error("Error fetching expert availabilities:", error)
+        expertAvailabilities = []
+      }
+    }
+
     return {
       expert,
       experiences,
       screeningQuestions,
+      expertAvailabilities,
     }
   } catch (error) {
     console.error("Error fetching expert data:", error)
@@ -344,8 +372,8 @@ const generateExpertsPDF = async (expertIds: number[], projectId: number | null 
     }
 
     try {
-      // Fetch expert data with the projectId to get project-specific screening questions
-      const { expert, experiences, screeningQuestions } = await fetchExpertData(expertId, projectId)
+      // Fetch expert data with the projectId to get project-specific screening questions and availabilities
+      const { expert, experiences, screeningQuestions, expertAvailabilities } = await fetchExpertData(expertId, projectId)
 
       // ================ HEADER SECTION ================
       // Set the green background (full width) - Changed from original (33, 96, 1) to a moderate green
@@ -552,7 +580,7 @@ screeningQuestions.forEach((question, index) => {
       }
 
       // ================ AVAILABILITY SECTION ================
-      if (projectId) {
+      if (projectId && expertAvailabilities && expertAvailabilities.length > 0) {
         currentY += 4
         try {
           doc.setFont("Montserrat", "bold")
@@ -570,24 +598,26 @@ screeningQuestions.forEach((question, index) => {
         }
         doc.setFontSize(10)
         
-        // Added three availability dates with bullet points, in chronological order
-        // Using circle bullet point character
-        const bulletPoint = "• "
-        const bulletIndent = 3  // Indentation for bullet points
-        
-        // First availability date (earliest)
-        doc.text(bulletPoint, leftMargin, currentY)
-        doc.text("Monday, 17th February at 3 PM (Jakarta Time)", leftMargin + bulletIndent, currentY)
-        currentY += 6
-        
-        // Second availability date
-        doc.text(bulletPoint, leftMargin, currentY)
-        doc.text("Tuesday, 18th February at 9 AM (Jakarta Time)", leftMargin + bulletIndent, currentY)
-        currentY += 6
-        
-        // Third availability date (latest)
-        doc.text(bulletPoint, leftMargin, currentY)
-        doc.text("Thursday, 20th February at 11 AM (Jakarta Time)", leftMargin + bulletIndent, currentY)
+        // Display availabilities from API
+        if (expertAvailabilities.length === 1) {
+          // If only one availability, don't use bullet points
+          doc.text(expertAvailabilities[0].available_time, leftMargin, currentY)
+        } else {
+          // If more than one availability, use bullet points
+          const bulletPoint = "• "
+          const bulletIndent = 3  // Indentation for bullet points
+          
+          expertAvailabilities.forEach((availability, index) => {
+            if (currentY > 260) {
+              doc.addPage()
+              currentY = 20
+            }
+            
+            doc.text(bulletPoint, leftMargin, currentY)
+            doc.text(availability.available_time, leftMargin + bulletIndent, currentY)
+            currentY += 6
+          })
+        }
       }
     } catch (error) {
       console.error(`Error generating PDF for expert ${expertId}:`, error)

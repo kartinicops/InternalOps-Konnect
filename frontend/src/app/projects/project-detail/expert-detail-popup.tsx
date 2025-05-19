@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import type React from "react"
+import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   X,
@@ -16,14 +17,14 @@ import {
   FileText,
   ClipboardList,
   Edit,
-  CheckCircle2,
+  Loader2,
 } from "lucide-react"
 import API from "@/services/api"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "react-toastify"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 
 interface Expert {
   expert_id: number
@@ -59,14 +60,12 @@ interface ProjectAssignment {
   project_id: number
 }
 
-// Update the ScreeningQuestion interface to match the API structure
 interface ScreeningQuestion {
   question_id: number
   project_id: number
   question: string
 }
 
-// Interface for screening answers to match the API response
 interface ScreeningAnswer {
   answer_id: number
   question_id: number
@@ -84,7 +83,7 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentProjectId = searchParams.get("id") ? Number.parseInt(searchParams.get("id") as string) : null
-  
+
   const [expert, setExpert] = useState<Expert | null>(null)
   const [experiences, setExperiences] = useState<Experience[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -94,36 +93,25 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
   const [activeTab, setActiveTab] = useState("career")
   const [editedAnswers, setEditedAnswers] = useState<Record<number, string>>({})
   const [savingAnswer, setSavingAnswer] = useState<number | null>(null)
+  const [navigating, setNavigating] = useState(false)
 
   useEffect(() => {
     const fetchExpertData = async () => {
       try {
         setLoading(true)
-
-        // Fetch expert details
         const expertResponse = await API.get(`/experts/${expertId}/`)
         setExpert(expertResponse.data)
 
-        // Fetch expert experiences specifically for this expert
         const experiencesResponse = await API.get(`/expert_experiences/?expert_id=${expertId}`)
         const expertExperiences = experiencesResponse.data.filter((exp: Experience) => exp.expert_id === expertId)
         setExperiences(expertExperiences)
 
-        // Fetch projects from pipeline and published for this expert
         const pipelineResponse = await API.get(`/project_pipeline/?expert_id=${expertId}`)
         const publishedResponse = await API.get(`/project_published/?expert_id=${expertId}`)
 
-        const pipelineAssignments = pipelineResponse.data.filter(
-          (item: ProjectAssignment) => item.expert_id === expertId,
-        )
-
-        const publishedAssignments = publishedResponse.data.filter(
-          (item: ProjectAssignment) => item.expert_id === expertId,
-        )
-
         const projectIds = [
-          ...pipelineAssignments.map((item: ProjectAssignment) => item.project_id),
-          ...publishedAssignments.map((item: ProjectAssignment) => item.project_id),
+          ...pipelineResponse.data.map((item: ProjectAssignment) => item.project_id),
+          ...publishedResponse.data.map((item: ProjectAssignment) => item.project_id),
         ]
 
         const uniqueProjectIds = [...new Set(projectIds)]
@@ -140,141 +128,102 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
               }
             }),
           )
-
           setProjects(projectsData.filter(Boolean))
 
-          // Only show screening questions for the current project
-          // The currentProjectId comes from the URL params of the project detail page
           if (currentProjectId) {
             try {
-              // Fetch only the screening questions for this specific project
               const questionsResponse = await API.get(`/screening_question/?project_id=${currentProjectId}`)
-              if (questionsResponse.data && questionsResponse.data.length > 0) {
-                // Make sure to filter out any questions that don't match the current project ID
-                // This is an additional safety measure
-                const projectQuestions = questionsResponse.data.filter(
-                  (q: ScreeningQuestion) => q.project_id === currentProjectId
-                )
-                setScreeningQuestions(projectQuestions)
-              } else {
-                setScreeningQuestions([])
-              }
-              
-              // Fetch screening answers for this expert and specifically for this project
-              try {
-                const answersResponse = await API.get(`/screening_answer/?expert_id=${expertId}&project_id=${currentProjectId}`)
-                setScreeningAnswers(answersResponse.data || [])
-              } catch (error) {
-                console.error("Error fetching screening answers:", error)
-                setScreeningAnswers([])
-              }
+              const projectQuestions = questionsResponse.data.filter(
+                (q: ScreeningQuestion) => q.project_id === currentProjectId,
+              )
+              setScreeningQuestions(projectQuestions)
+
+              const answersResponse = await API.get(
+                `/screening_answer/?expert_id=${expertId}&project_id=${currentProjectId}`,
+              )
+              setScreeningAnswers(answersResponse.data || [])
             } catch (error) {
-              console.error(`Error fetching screening questions for project ${currentProjectId}:`, error)
+              console.error("Error fetching screening data:", error)
               setScreeningQuestions([])
+              setScreeningAnswers([])
             }
-          } else {
-            // If we're not on a specific project page, don't show any screening questions
-            setScreeningQuestions([])
-            setScreeningAnswers([])
           }
-        } else {
-          setProjects([])
-          setScreeningQuestions([])
-          setScreeningAnswers([])
         }
       } catch (error) {
         console.error("Error fetching expert data:", error)
+        toast.error("Failed to load expert data")
       } finally {
         setLoading(false)
       }
     }
 
-    if (expertId) {
-      fetchExpertData()
-    }
+    if (expertId) fetchExpertData()
   }, [expertId, currentProjectId])
 
-  // Navigate to edit expert page
   const handleEditExpert = () => {
-    router.push(`/edit-expert?id=${expertId}`)
-    onClose()
+    try {
+      setNavigating(true)
+      // Use currentProjectId instead of projectId
+      router.push(
+        `/projects/project-detail/project-experts/edit-expert?id=${expertId}${currentProjectId ? `&projectId=${currentProjectId}` : ""}`,
+      )
+      onClose()
+    } catch (error) {
+      console.error("Navigation error:", error)
+      toast.error("Failed to navigate to edit page")
+      setNavigating(false)
+    }
   }
 
-  // Format date from API (e.g., "01-2017" to "Jan 2017")
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Present"
-
     const [month, year] = dateString.split("-")
     if (!month || !year) return dateString
-
     try {
       const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1)
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
+      return date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
     } catch (error) {
       return dateString
     }
   }
 
-  // Get answer for a specific question
   const getAnswerForQuestion = (questionId: number) => {
-    return screeningAnswers.find((answer) => 
-      answer.question_id === questionId && 
-      answer.expert_id === expertId
-    )?.answer || null
+    return (
+      screeningAnswers.find((answer) => answer.question_id === questionId && answer.expert_id === expertId)?.answer ||
+      null
+    )
   }
 
-  // Get answer object for a specific question
   const getAnswerObjectForQuestion = (questionId: number) => {
-    return screeningAnswers.find((answer) => 
-      answer.question_id === questionId && 
-      answer.expert_id === expertId
-    ) || null
+    return screeningAnswers.find((answer) => answer.question_id === questionId && answer.expert_id === expertId) || null
   }
 
-  // Handle saving an answer
   const handleSaveAnswer = async (questionId: number, answer: string) => {
     setSavingAnswer(questionId)
-    
     try {
       const existingAnswer = getAnswerObjectForQuestion(questionId)
       const payload = {
         question_id: questionId,
         expert_id: expertId,
         project_id: currentProjectId,
-        answer: answer
+        answer: answer,
       }
 
-      let response;
-      
+      let response
       if (existingAnswer) {
-        // Update existing answer
         response = await API.put(`/screening_answer/${existingAnswer.answer_id}/`, payload)
-        
-        // Update local state
-        const updatedAnswers = screeningAnswers.map(ans => 
-          ans.answer_id === existingAnswer.answer_id 
-            ? {...ans, answer: answer} 
-            : ans
+        const updatedAnswers = screeningAnswers.map((ans) =>
+          ans.answer_id === existingAnswer.answer_id ? { ...ans, answer: answer } : ans,
         )
         setScreeningAnswers(updatedAnswers)
       } else {
-        // Create new answer
         response = await API.post("/screening_answer/", payload)
-        
-        // Add to local state
-        if (response.data) {
-          setScreeningAnswers([...screeningAnswers, response.data])
-        }
+        setScreeningAnswers([...screeningAnswers, response.data])
       }
 
-      // Clear edited state
       const newEditedAnswers = { ...editedAnswers }
       delete newEditedAnswers[questionId]
       setEditedAnswers(newEditedAnswers)
-      
       toast.success("Answer saved successfully")
     } catch (error) {
       console.error("Error saving answer:", error)
@@ -284,20 +233,31 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
     }
   }
 
-  // Get current or most recent position
   const getCurrentPosition = () => {
     if (!experiences || experiences.length === 0) return null
-
     const sortedExperiences = [...experiences].sort((a, b) => {
       if (!a.end_date) return -1
       if (!b.end_date) return 1
       return new Date(b.end_date).getTime() - new Date(a.end_date).getTime()
     })
-
     return sortedExperiences[0]
   }
 
   const currentPosition = getCurrentPosition()
+
+  // Check if there are any unsaved changes
+  const hasUnsavedChanges = Object.keys(editedAnswers).length > 0
+
+  // Handle close with confirmation if there are unsaved changes
+  const handleCloseWithConfirmation = () => {
+    if (hasUnsavedChanges) {
+      if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+        onClose()
+      }
+    } else {
+      onClose()
+    }
+  }
 
   if (loading) {
     return (
@@ -320,105 +280,142 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
   return (
     <div className="h-full overflow-auto">
       <div className="relative bg-white h-full">
-        <div className="absolute top-4 right-4 z-10 flex space-x-2">
-          {/* Edit Button */}
-          <Button 
-            onClick={handleEditExpert}
-            className="px-3 py-1 h-9 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1"
-          >
-            <Edit className="h-4 w-4" />
-            Edit Expert
-          </Button>
+        {/* Close Button */}
+        <motion.button
+          onClick={handleCloseWithConfirmation}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          className="absolute top-4 right-4 z-50"
+          aria-label="Close"
+        >
+          <div className="p-1.5 bg-white rounded-full shadow-lg hover:shadow-xl transition-shadow">
+            <X className="h-6 w-6 text-gray-600" />
+          </div>
+        </motion.button>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full bg-white shadow-md text-gray-500 hover:text-gray-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Expert Profile Summary */}
-        <div className="p-6 bg-gradient-to-br from-blue-50 to-white border-b">
+        {/* Profile Section */}
+        <div className="p-6 bg-gradient-to-br from-blue-50 to-white border-b sticky top-0 z-10">
           <div className="flex items-start">
-            <div className="flex-shrink-0 h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center mr-5">
-              <User className="h-10 w-10 text-blue-600" />
+            <div className="flex-shrink-0 mr-5 flex flex-col items-center ml-4 pt-4">
+              <div className="h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <User className="h-10 w-10 text-blue-600" />
+              </div>
+
+              <Button
+                onClick={handleEditExpert}
+                variant="ghost"
+                disabled={navigating}
+                className="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-100 px-3 py-1 rounded-full flex items-center gap-1 h-7"
+              >
+                {navigating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Navigating...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="h-3.5 w-3.5" />
+                    Edit Profile
+                  </>
+                )}
+              </Button>
             </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-800">{expert.full_name}</h2>
 
-              {currentPosition && (
-                <div className="text-gray-600 mt-1">
-                  {currentPosition.title} at {currentPosition.company_name}
+            <div className="flex-1 ml-6 mt-2">
+              <div className="flex-1 ml-6">
+                <h2 className="text-2xl font-bold text-gray-800">{expert.full_name}</h2>
+
+                {currentPosition && (
+                  <div className="text-gray-600 mt-1">
+                    {currentPosition.title} at {currentPosition.company_name}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Badge className="bg-blue-100 text-blue-800 border-none">{expert.industry}</Badge>
+                  <Badge className="bg-gray-100 text-gray-800 border-none flex items-center">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    {expert.country_of_residence}
+                  </Badge>
+                  <Badge className="bg-green-100 text-green-800 border-none flex items-center">
+                    <DollarSign className="h-3 w-3 mr-1" />
+                    {expert.expert_cost}
+                  </Badge>
                 </div>
-              )}
 
-              <div className="flex flex-wrap gap-2 mt-3">
-                <Badge className="bg-blue-100 text-blue-800 border-none">{expert.industry}</Badge>
-                <Badge className="bg-gray-100 text-gray-800 border-none flex items-center">
-                  <MapPin className="h-3 w-3 mr-1" />
-                  {expert.country_of_residence}
-                </Badge>
-                <Badge className="bg-green-100 text-green-800 border-none flex items-center">
-                  <DollarSign className="h-3 w-3 mr-1" />{expert.expert_cost}
-                </Badge>
+                {/* Contact icons */}
+                <div className="flex gap-3 mt-4">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-all"
+                    onClick={() => (window.location.href = `mailto:${expert.email}`)}
+                    title="Send Email"
+                  >
+                    <Mail className="h-5 w-5 text-gray-600" />
+                  </motion.button>
+
+                  {expert.linkedIn_profile_link && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-all"
+                      onClick={() => window.open(expert.linkedIn_profile_link, "_blank")}
+                      title="LinkedIn Profile"
+                    >
+                      <Linkedin className="h-5 w-5 text-gray-600" />
+                    </motion.button>
+                  )}
+
+                  {expert.phone_number && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-all"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(expert.phone_number)
+                          toast.success("Phone number copied!")
+                        } catch (error) {
+                          toast.error("Failed to copy")
+                        }
+                      }}
+                      title="Copy Phone Number"
+                    >
+                      <Phone className="h-5 w-5 text-gray-600" />
+                    </motion.button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Quick Contact Bar */}
-        <div className="flex flex-wrap gap-4 px-6 py-3 bg-gray-50 border-b text-sm">
-          <a href={`mailto:${expert.email}`} className="flex items-center text-blue-600 hover:text-blue-800">
-            <Mail className="h-4 w-4 mr-1" />
-            {expert.email}
-          </a>
-
-          {expert.linkedIn_profile_link && (
-            <a
-              href={expert.linkedIn_profile_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center text-blue-600 hover:text-blue-800"
-            >
-              <Linkedin className="h-4 w-4 mr-1" />
-              {expert.linkedIn_profile_link}
-            </a>
-          )}
-
-          {expert.phone_number && (
-            <span className="flex items-center text-blue-600">
-              <Phone className="h-4 w-4 mr-1" />
-              {expert.phone_number}
-            </span>
-          )}
-        </div>
-
-        {/* Tabs */}
+        {/* Tabs Section */}
         <Tabs defaultValue="career" className="flex-1 flex flex-col h-[calc(100%-172px)]">
           <TabsList className="flex p-1 mx-6 mt-4 bg-gray-100 rounded-lg justify-center">
             <TabsTrigger
               value="career"
-              className="flex-1 rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
+              className="flex-1 rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700"
             >
               Career
             </TabsTrigger>
             <TabsTrigger
               value="projects"
-              className="flex-1 rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
+              className="flex-1 rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700"
             >
               Projects
             </TabsTrigger>
             <TabsTrigger
               value="screening"
-              className="flex-1 rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
+              className="flex-1 rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-700"
             >
               Screening
             </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {/* Career History Tab */}
+            {/* Career Tab */}
             <TabsContent value="career" className="mt-0 h-full">
               <div className="space-y-6">
                 <div>
@@ -426,34 +423,28 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
                     <Briefcase className="h-5 w-5 mr-2 text-blue-500" />
                     Career History
                   </h3>
-
                   {experiences.length > 0 ? (
                     <div className="space-y-4">
                       {experiences.map((exp) => (
                         <div key={exp.experience_id} className="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-400">
                           <div className="flex flex-col">
-                            <div>
-                              <h4 className="font-medium text-gray-800 text-lg">{exp.title}</h4>
-                              <div className="flex items-center text-gray-600 mt-1">
-                                <Building className="h-4 w-4 mr-1" />
-                                <span className="font-medium">{exp.company_name}</span>
-                              </div>
+                            <h4 className="font-medium text-gray-800 text-lg">{exp.title}</h4>
+                            <div className="flex items-center text-gray-600 mt-1">
+                              <Building className="h-4 w-4 mr-1" />
+                              <span className="font-medium">{exp.company_name}</span>
                             </div>
-                            <div className="text-sm text-gray-500 flex items-center mt-2 self-start bg-white px-3 py-1 rounded-full border border-gray-200">
+                            <div className="text-sm text-gray-500 flex items-center mt-2 self-start bg-white px-3 py-1 rounded-full border">
                               <Calendar className="h-4 w-4 mr-1" />
-                              <span>
-                                {formatDate(exp.start_date)} - {formatDate(exp.end_date)}
-                              </span>
+                              {formatDate(exp.start_date)} - {formatDate(exp.end_date)}
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
+                    <div className="bg-gray-50 p-6 rounded-lg border text-center">
                       <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                       <p className="text-gray-500 font-medium">No career history available</p>
-                      <p className="text-gray-400 text-sm mt-1">This expert hasn't added any work experience yet.</p>
                     </div>
                   )}
                 </div>
@@ -461,44 +452,10 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                     <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                    Notes
+                    Biography
                   </h3>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-[100px]">
-                    <div className="text-gray-700 whitespace-pre-line">
-                      {expert.notes || "No notes available for this expert."}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <Mail className="h-5 w-5 mr-2 text-blue-500" />
-                    Contact Information
-                  </h3>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <a href={`mailto:${expert.email}`} className="text-blue-600 hover:underline font-medium">
-                          {expert.email}
-                        </a>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="font-medium">{expert.phone_number || "Not provided"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">LinkedIn</p>
-                        <a
-                          href={expert.linkedIn_profile_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline font-medium break-all"
-                        >
-                          {expert.linkedIn_profile_link || "Not provided"}
-                        </a>
-                      </div>
-                    </div>
+                  <div className="bg-gray-50 p-4 rounded-lg border min-h-[100px]">
+                    <div className="text-gray-700 whitespace-pre-line">{expert.notes || "No biography available"}</div>
                   </div>
                 </div>
               </div>
@@ -510,33 +467,24 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
                 <Briefcase className="h-5 w-5 mr-2 text-blue-500" />
                 Projects ({projects.length})
               </h3>
-
               {projects.length > 0 ? (
                 <div className="space-y-4">
                   {projects.map((project) => (
                     <div
                       key={project.project_id}
                       className={`bg-white p-4 rounded-lg border ${
-                        currentProjectId === project.project_id 
-                          ? "border-blue-400 shadow-md" 
-                          : "border-gray-200 hover:border-blue-200 hover:shadow-md"
+                        currentProjectId === project.project_id
+                          ? "border-blue-400 shadow-md"
+                          : "border-gray-200 hover:border-blue-200"
                       } transition-all`}
                     >
                       <div className="flex justify-between items-start">
                         <h4 className="font-medium text-gray-800">{project.project_name}</h4>
                         <div className="flex items-center gap-2">
                           {currentProjectId === project.project_id && (
-                            <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                              Current
-                            </Badge>
+                            <Badge className="bg-blue-100 text-blue-800">Current</Badge>
                           )}
-                          <Badge
-                            className={
-                              project.status
-                                ? "bg-gray-100 text-gray-800 border-gray-200"
-                                : "bg-green-100 text-green-800 border-green-200"
-                            }
-                          >
+                          <Badge className={project.status ? "bg-gray-100" : "bg-green-100"}>
                             {project.status ? "Closed" : "Active"}
                           </Badge>
                         </div>
@@ -545,10 +493,9 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
                   ))}
                 </div>
               ) : (
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
+                <div className="bg-gray-50 p-6 rounded-lg border text-center">
                   <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 font-medium">No projects available</p>
-                  <p className="text-gray-400 text-sm mt-1">This expert hasn't been assigned to any projects yet.</p>
                 </div>
               )}
             </TabsContent>
@@ -557,69 +504,68 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
             <TabsContent value="screening" className="mt-0 h-full">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <ClipboardList className="h-5 w-5 mr-2 text-blue-500" />
-                Project Screening Questions
+                Project Screening
               </h3>
-
               {screeningQuestions.length > 0 ? (
                 <div className="space-y-4">
-                  {screeningQuestions.map((question, index) => {
+                  {screeningQuestions.map((question) => {
                     const questionId = question.question_id
                     const answer = getAnswerForQuestion(questionId)
                     const isEditing = editedAnswers[questionId] !== undefined
                     const isSaving = savingAnswer === questionId
 
                     return (
-                      <div key={`question-${questionId}`} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div key={questionId} className="bg-gray-50 p-4 rounded-lg border">
                         <div className="space-y-2">
                           <div className="text-sm text-gray-500">{question.question}</div>
                           {isEditing ? (
                             <div className="mt-2">
                               <textarea
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full p-2 border rounded-md focus:ring-blue-500"
                                 rows={4}
                                 value={editedAnswers[questionId]}
                                 onChange={(e) => setEditedAnswers({ ...editedAnswers, [questionId]: e.target.value })}
                                 disabled={isSaving}
                               />
-                              <div className="flex justify-end mt-2 space-x-2">
-                                <button
+                              <div className="flex justify-end mt-2 gap-2">
+                                <Button
+                                  variant="outline"
                                   onClick={() => {
                                     const newEditedAnswers = { ...editedAnswers }
                                     delete newEditedAnswers[questionId]
                                     setEditedAnswers(newEditedAnswers)
                                   }}
-                                  className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                                   disabled={isSaving}
                                 >
                                   Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   onClick={() => handleSaveAnswer(questionId, editedAnswers[questionId])}
-                                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
                                   disabled={isSaving}
                                 >
                                   {isSaving ? (
                                     <>
-                                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                       Saving...
                                     </>
-                                  ) : "Save"}
-                                </button>
+                                  ) : (
+                                    "Save"
+                                  )}
+                                </Button>
                               </div>
                             </div>
                           ) : (
                             <div className="flex justify-between items-start">
                               <div className="font-medium text-gray-800 whitespace-pre-line">
-                                {answer || "No answer provided."}
+                                {answer || "No answer provided"}
                               </div>
-                              <button
-                                onClick={() => {
-                                  setEditedAnswers({ ...editedAnswers, [questionId]: answer || "" })
-                                }}
-                                className="text-blue-600 hover:text-blue-800 text-sm"
+                              <Button
+                                variant="ghost"
+                                className="text-blue-600 hover:text-blue-800"
+                                onClick={() => setEditedAnswers({ ...editedAnswers, [questionId]: answer || "" })}
                               >
-                                {answer ? "Edit Answer" : "Add Answer"}
-                              </button>
+                                {answer ? "Edit" : "Add Answer"}
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -628,9 +574,9 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
                   })}
                 </div>
               ) : (
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
+                <div className="bg-gray-50 p-6 rounded-lg border text-center">
                   <ClipboardList className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No screening questions available for this project</p>
+                  <p className="text-gray-500 font-medium">No screening questions</p>
                 </div>
               )}
             </TabsContent>

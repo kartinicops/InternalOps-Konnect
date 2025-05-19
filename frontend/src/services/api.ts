@@ -1,8 +1,17 @@
-import axios from "axios";
+import axios from "axios"
 
 const API = axios.create({
-  baseURL: "http://103.150.100.184", // Sesuaikan dengan backend
-  withCredentials: true, // Pastikan cookies dikirim jika pakai session
-});
+  baseURL: process.env.API_URL || "http://103.150.100.184",
+  withCredentials: true, // opsional, kalau kamu pakai cookie login
+})
 
-export default API;
+// Interceptor untuk nambahin Authorization header secara otomatis
+API.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem("auth_token")
+  if (token) {
+    config.headers.Authorization = token
+  }
+  return config
+})
+
+export default API
