@@ -23,7 +23,7 @@ export function DateTimePicker({ value, onChange, className }: DateTimePickerPro
     try {
       // Try to parse the date from the format: "Saturday, 31 May 2025 at 8 PM (Jakarta time)"
       if (value.includes("at") && value.includes("Jakarta time")) {
-        return parse(value.replace(" (Jakarta time)", ""), "EEEE, d MMMM yyyy 'at' h a", new Date())
+       return parse(value.replace(" (Jakarta time)", ""), "EEEE, d MMMM yyyy 'at' h:mm a", new Date())
       }
 
       // If it's an ISO format, parse it directly
@@ -33,7 +33,7 @@ export function DateTimePicker({ value, onChange, className }: DateTimePickerPro
       return new Date()
     }
   }
-
+  
   const [date, setDate] = useState<Date | undefined>(parseInitialDate())
   const [time, setTime] = useState<string>(date ? format(date, "h").toString() : "1")
   const [period, setPeriod] = useState<string>(date ? format(date, "a").toUpperCase() : "AM")
