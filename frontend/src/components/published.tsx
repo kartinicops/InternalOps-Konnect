@@ -121,6 +121,45 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
   }
 
   // Fetch expert availabilities for experts
+  const getExpertAvailability = (expertId: number): string[] => {
+    try {
+      // Find all availabilities for this expert
+      const availabilities = expertAvailabilities.filter((avail) => avail.expert_id === expertId)
+
+      if (availabilities.length === 0) {
+        return ["-"]
+      }
+
+      // Return all available times, formatted
+      return availabilities.map((avail) => {
+        // Format the date string for display
+        try {
+          const date = new Date(avail.available_time)
+          if (isNaN(date.getTime())) {
+            return avail.available_time
+          }
+          
+          // Format to a readable date string
+          const options: Intl.DateTimeFormatOptions = {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+          }
+          return new Intl.DateTimeFormat('en-US', options).format(date) + " (Jakarta time)"
+        } catch (e) {
+          return avail.available_time
+        }
+      })
+    } catch (error) {
+      console.error("Error getting expert availability:", error)
+      return ["-"]
+    }
+  }
+
   const fetchExpertAvailabilities = async (expertIds: number[]) => {
     try {
       // Fetch all availabilities
@@ -185,23 +224,6 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getExpertAvailability = (expertId: number): string[] => {
-    try {
-      // Find all availabilities for this expert
-      const availabilities = expertAvailabilities.filter((avail) => avail.expert_id === expertId)
-
-      if (availabilities.length === 0) {
-        return ["-"]
-      }
-
-      // Return all available times, formatted without "(Jakarta time)"
-      return availabilities.map((avail) => avail.available_time.replace(" (Jakarta time)", ""))
-    } catch (error) {
-      console.error("Error getting expert availability:", error)
-      return ["-"]
     }
   }
 

@@ -9,7 +9,7 @@ import { toast } from "react-toastify"
 import API from "@/services/api"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/page"
-import { format, addHours, parseISO } from "date-fns"
+import { format, addHours, parseISO, isValid } from "date-fns"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -103,8 +103,35 @@ export default function EditAvailabilitySection({ expertId, projectId }: EditAva
   // Format API date to display format: "Saturday, 31 May 2025 at 2:30 PM (Jakarta time)"
   const formatAPIDateForDisplay = (apiDateString: string): string => {
     try {
-      // Parse the API date format "YYYY-MM-DD HH:MM:SS"
-      const date = parseISO(apiDateString)
+      // Check if the apiDateString is valid
+      if (!apiDateString || typeof apiDateString !== 'string') {
+        console.warn("Invalid API date string:", apiDateString)
+        return apiDateString || "Invalid date"
+      }
+
+      // Try different parsing approaches
+      let date: Date
+
+      // First, try parseISO (for ISO strings like "2025-05-31T14:30:00Z" or "2025-05-31 14:30:00")
+      date = parseISO(apiDateString)
+
+      // If parseISO fails, try treating it as a regular Date constructor input
+      if (!isValid(date)) {
+        // Handle space-separated format: "YYYY-MM-DD HH:MM:SS"
+        const cleanedDateString = apiDateString.replace(' ', 'T')
+        date = parseISO(cleanedDateString)
+      }
+
+      // If still invalid, try direct Date constructor
+      if (!isValid(date)) {
+        date = new Date(apiDateString)
+      }
+
+      // Final check if date is valid
+      if (!isValid(date)) {
+        console.error("Could not parse date:", apiDateString)
+        return apiDateString // Return original if all parsing attempts fail
+      }
 
       // Format to display format
       const dayOfWeek = format(date, "EEEE")
@@ -119,7 +146,7 @@ export default function EditAvailabilitySection({ expertId, projectId }: EditAva
 
       return `${dayOfWeek}, ${dayOfMonth} ${month} ${year} at ${hour12}:${minute} ${ampm} (Jakarta time)`
     } catch (error) {
-      console.error("Error formatting date:", error)
+      console.error("Error formatting date:", error, "Original string:", apiDateString)
       return apiDateString // Return original if parsing fails
     }
   }
