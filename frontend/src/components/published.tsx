@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import API from "@/services/api"
 import ExportExpertsButton from "@/components/export-experts-button"
-import { Loader2 } from 'lucide-react'
+import { Loader2 } from "lucide-react"
 
 interface Expert {
   expert_id: number
@@ -38,7 +38,7 @@ interface ExpertAvailability {
 
 interface PublishedProps {
   project_id: string
-  onSelectExpert: (expertId: number) => void
+  onSelectExpert?: (expertId: number) => void
 }
 
 const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
@@ -87,7 +87,7 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
           await fetchExpertExperiences(expertIds)
 
           // Fetch expert availabilities for these experts
-          await fetchExpertAvailabilities(expertIds)
+          await fetchExpertAvailabilities(filteredPublished)
         } else {
           setPublishedExperts([])
         }
@@ -120,62 +120,96 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
     }
   }
 
-  // Fetch expert availabilities for experts
-  const getExpertAvailability = (expertId: number): string[] => {
+  // Updated function to fetch expert availabilities directly from API
+  const fetchExpertAvailabilities = async (publishedRecords: PublishedData[]) => {
     try {
-      // Find all availabilities for this expert
-      const availabilities = expertAvailabilities.filter((avail) => avail.expert_id === expertId)
+      // Get all project_publish_ids from the published records
+      const projectPublishIds = publishedRecords.map((record) => record.project_publish_id)
 
-      if (availabilities.length === 0) {
-        return ["-"]
-      }
+      console.log("Project publish IDs for these experts:", projectPublishIds)
 
-      // Return all available times, formatted
-      return availabilities.map((avail) => {
-        // Format the date string for display
-        try {
-          const date = new Date(avail.available_time)
-          if (isNaN(date.getTime())) {
-            return avail.available_time
-          }
-          
-          // Format to a readable date string
-          const options: Intl.DateTimeFormatOptions = {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true
-          }
-          return new Intl.DateTimeFormat('en-US', options).format(date) + " (Jakarta time)"
-        } catch (e) {
-          return avail.available_time
-        }
-      })
-    } catch (error) {
-      console.error("Error getting expert availability:", error)
-      return ["-"]
-    }
-  }
-
-  const fetchExpertAvailabilities = async (expertIds: number[]) => {
-    try {
       // Fetch all availabilities
       const availabilitiesResponse = await API.get(`/expert_availabilities/`, {
         withCredentials: true,
       })
 
-      // Filter availabilities for our experts
+      console.log("All availabilities:", availabilitiesResponse.data)
+
+      // Filter availabilities based on project_publish_ids
       const filteredAvailabilities = availabilitiesResponse.data.filter((availability: ExpertAvailability) =>
-        expertIds.includes(availability.expert_id),
+        projectPublishIds.includes(availability.project_publish_id),
       )
 
+      console.log("Filtered availabilities for published table:", filteredAvailabilities)
       setExpertAvailabilities(filteredAvailabilities)
     } catch (error) {
       console.error("Error fetching expert availabilities:", error)
-      // Don't throw the error, just log it and continue
+    }
+  }
+
+  // Get the expert's availability directly from the API data
+  const getExpertAvailability = (expertId: number): string => {
+    try {
+      // Find the published record for this expert to get project_publish_id
+      const publishedRecord = publishedData.find((record) => record.expert_id === expertId)
+      if (!publishedRecord) return "-"
+
+      const projectPublishId = publishedRecord.project_publish_id
+
+      // Find all availabilities for this project_publish_id
+      const expertAvails = expertAvailabilities.filter((avail) => avail.project_publish_id === projectPublishId)
+
+      if (expertAvails.length === 0) return "-"
+
+      // Filter for future availabilities
+      const now = new Date()
+      const futureAvails = expertAvails.filter((avail) => {
+        try {
+          const availDate = new Date(avail.available_time)
+          return !isNaN(availDate.getTime()) && availDate > now
+        } catch (error) {
+          console.error("Error parsing date:", avail.available_time)
+          return false
+        }
+      })
+
+      if (futureAvails.length === 0) return "-"
+
+      // Sort by date (nearest first)
+      const sortedAvails = [...futureAvails].sort((a, b) => {
+        const dateA = new Date(a.available_time)
+        const dateB = new Date(b.available_time)
+        return dateA.getTime() - dateB.getTime()
+      })
+
+      // Get the nearest availability
+      const nearestAvail = sortedAvails[0]
+
+      // Format the date nicely
+      try {
+        const availDate = new Date(nearestAvail.available_time)
+
+        if (!isNaN(availDate.getTime())) {
+          const dayOfWeek = availDate.toLocaleDateString("en-US", { weekday: "long" })
+          const day = availDate.getDate()
+          const month = availDate.toLocaleDateString("en-US", { month: "long" })
+          const year = availDate.getFullYear()
+          const hour = availDate.getHours() % 12 || 12
+          const minute = availDate.getMinutes().toString().padStart(2, "0")
+          const ampm = availDate.getHours() >= 12 ? "PM" : "AM"
+
+          return `${dayOfWeek}, ${day} ${month} ${year} at ${hour}:${minute} ${ampm}`
+        }
+
+        // If date parsing fails, return the raw value
+        return nearestAvail.available_time
+      } catch (error) {
+        console.error("Error formatting date:", error)
+        return nearestAvail.available_time
+      }
+    } catch (error) {
+      console.error("Error getting expert availability:", error)
+      return "-"
     }
   }
 
@@ -233,7 +267,9 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
   }
 
   const handleRowClick = (expertId: number) => {
-    onSelectExpert(expertId)
+    if (onSelectExpert) {
+      onSelectExpert(expertId)
+    }
   }
 
   // Toggle expert selection for PDF export
@@ -310,7 +346,7 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
             {publishedExperts.length > 0 ? (
               publishedExperts.map((expert) => {
                 const status = getStatus(expert.expert_id)
-                const availabilities = getExpertAvailability(expert.expert_id)
+                const availability = getExpertAvailability(expert.expert_id)
 
                 return (
                   <TableRow key={expert.expert_id} className="cursor-pointer hover:bg-gray-50">
@@ -339,16 +375,14 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
                     <TableCell onClick={() => handleRowClick(expert.expert_id)}>
                       <Badge className={getStatusColor(status)}>{status}</Badge>
                     </TableCell>
+                    {/* Show only the closest availability with styling */}
                     <TableCell onClick={() => handleRowClick(expert.expert_id)}>
-                      <div className="space-y-1">
-                        {availabilities.map((time, index) => (
-                          <div
-                            key={index}
-                            className={time !== "-" ? "text-sm bg-green-50 text-green-800 px-2 py-1 rounded-md" : ""}
-                          >
-                            {time}
-                          </div>
-                        ))}
+                      <div
+                        className={
+                          availability !== "-" ? "text-sm bg-green-50 text-green-800 px-2 py-1 rounded-md" : ""
+                        }
+                      >
+                        {availability}
                       </div>
                     </TableCell>
                   </TableRow>

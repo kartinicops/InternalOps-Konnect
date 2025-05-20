@@ -327,11 +327,10 @@ export default function EditExpert() {
   // Show loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-white to-gray-50 flex items-center justify-center">
-        <Nav />
-        <div className="flex flex-col items-center">
-          <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
-          <p className="text-lg text-gray-600">Loading expert data...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-lg text-gray-600">Loading projects...</p>
         </div>
       </div>
     )
@@ -635,11 +634,11 @@ export default function EditExpert() {
 
           {/* Career History Card */}
           <Card className="shadow-sm border border-gray-100 overflow-hidden rounded-xl bg-gradient-to-br from-white to-blue-50 group">
-            <CardHeader className="bg-white border-b border-gray-100 py-4 px-6 group-hover:bg-blue-50/50 transition-colors">
+            <CardHeader className="bg-white border-b border-gray-100 py-4 px-6">
               <CardTitle className="text-lg font-semibold text-gray-800 flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="w-1 h-5 bg-blue-600 mr-3 rounded-full"></div>
-                  <Briefcase className="h-4 w-4 mr-2 text-blue-600 group-hover:text-blue-500 transition-colors" />
+                  <Briefcase className="h-4 w-4 mr-2 text-blue-600" />
                   Career History
                 </div>
                 <Button
