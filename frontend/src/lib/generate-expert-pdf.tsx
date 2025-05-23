@@ -76,7 +76,46 @@ const getShortDateFormat = (dateString: string | null): string => {
   return formattedDate
 }
 
-// Custom text rendering with perfect justification
+// Format availability date to display format
+const formatAvailabilityDate = (apiDateString: string): string => {
+  try {
+    // Check if the apiDateString is valid
+    if (!apiDateString || typeof apiDateString !== "string") {
+      return apiDateString || "Invalid date"
+    }
+
+    // If already in the expected format, return it as is
+    if (apiDateString.includes("at") && (apiDateString.includes("AM") || apiDateString.includes("PM"))) {
+      return apiDateString
+    }
+
+    // Try to parse the date
+    const date = new Date(apiDateString)
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return apiDateString
+    }
+
+    // Format to display format
+    const dayOfWeek = date.toLocaleDateString("en-US", { weekday: "long" })
+    const dayOfMonth = date.getDate()
+    const month = date.toLocaleDateString("en-US", { month: "long" })
+    const year = date.getFullYear()
+
+    // Format time in 12-hour format
+    const hour12 = date.getHours() % 12 || 12
+    const minute = date.getMinutes().toString().padStart(2, "0")
+    const ampm = date.getHours() >= 12 ? "PM" : "AM"
+
+    return `${dayOfWeek}, ${dayOfMonth} ${month} ${year} at ${hour12}:${minute} ${ampm} (Jakarta time)`
+  } catch (error) {
+    console.error("Error formatting availability date:", error)
+    return apiDateString // Return original if parsing fails
+  }
+}
+
+// Custom text rendering with perfect justification (ENHANCED for better justification)
 const renderJustifiedText = (
   doc: jsPDF,
   text: string,
@@ -89,7 +128,7 @@ const renderJustifiedText = (
   const paragraphs = text.split("\n")
   let currentY = y
 
-  paragraphs.forEach((paragraph) => {
+  paragraphs.forEach((paragraph, paragraphIndex) => {
     if (!paragraph.trim()) {
       currentY += lineHeight
       return
@@ -100,34 +139,44 @@ const renderJustifiedText = (
 
     // Process each line for justification
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      const isLastLine = i === lines.length - 1
+      const line = lines[i].trim()
+      const isLastLineOfParagraph = i === lines.length - 1
 
-      if (isLastLine) {
-        // Last line of paragraph is left-aligned
+      if (isLastLineOfParagraph) {
+        // Last line of paragraph is left-aligned (not justified)
         doc.text(line, x, currentY)
       } else {
-        // Justify all lines except the last one in the paragraph
-        // Calculate the number of spaces and words
-        const words = line.split(" ")
+        // Justify this line (make it align both left and right) - ENHANCED
+        const words = line.split(/\s+/).filter(word => word.length > 0)
         const numWords = words.length
         const numSpaces = numWords - 1
 
-        if (numSpaces > 0) {
-          // Calculate width of line without spaces
-          const textWidth = doc.getTextWidth(words.join(""))
-          // Calculate extra space to distribute
-          const extraSpace = maxWidth - textWidth
-          // Calculate space width between words
-          const spaceWidth = extraSpace / numSpaces
+        if (numSpaces > 0 && numWords > 1) {
+          // Calculate total width of words without spaces
+          const wordsWidth = words.reduce((total, word) => total + doc.getTextWidth(word), 0)
+          
+          // Calculate extra space to distribute to make line fill the full width
+          const extraSpace = maxWidth - wordsWidth
+          
+          // Ensure minimum spacing between words (for readability)
+          const minSpaceWidth = doc.getTextWidth(" ")
+          
+          // Only justify if the extra space doesn't make word spacing too wide
+          if (extraSpace / numSpaces <= minSpaceWidth * 3) {
+            // Calculate space width between words for perfect justification
+            const spaceWidth = extraSpace / numSpaces
 
-          let currentX = x
-          // Draw each word with calculated spacing
-          for (let j = 0; j < numWords; j++) {
-            doc.text(words[j], currentX, currentY)
-            if (j < numWords - 1) {
-              currentX += doc.getTextWidth(words[j]) + spaceWidth
+            let currentX = x
+            // Draw each word with calculated spacing to fill the entire line width
+            for (let j = 0; j < numWords; j++) {
+              doc.text(words[j], currentX, currentY)
+              if (j < numWords - 1) {
+                currentX += doc.getTextWidth(words[j]) + spaceWidth
+              }
             }
+          } else {
+            // If spacing would be too wide, just left-align
+            doc.text(line, x, currentY)
           }
         } else {
           // Single word line, left-aligned
@@ -136,6 +185,11 @@ const renderJustifiedText = (
       }
 
       currentY += lineHeight
+    }
+
+    // Add extra space between paragraphs
+    if (paragraphIndex < paragraphs.length - 1) {
+      currentY += lineHeight * 0.4
     }
   })
 
@@ -152,7 +206,6 @@ const addHighlightedText = (
   underline = true,
 ) => {
   const textWidth = doc.getTextWidth(text)
-//   const padding = 2
 
   // Draw background rectangle
   doc.setFillColor(backgroundColor[0], backgroundColor[1], backgroundColor[2])
@@ -200,9 +253,12 @@ const fetchExpertData = async (expertId: number, projectId: number | null = null
       const projectScreeningResponse = await API.get(`/screening_question/?project_id=${projectId}`)
       const projectQuestions = projectScreeningResponse.data || []
 
-      // Fetch expert's answers for this project
-      const expertAnswersResponse = await API.get(`/screening_answer/?expert_id=${expertId}&project_id=${projectId}`)
-      const expertAnswers = expertAnswersResponse.data || []
+      // Fetch expert's answers for this project using the correct API endpoint
+      const expertAnswersResponse = await API.get(`/screening_answer/`)
+      const allAnswers = expertAnswersResponse.data || []
+      
+      // Filter answers for this specific expert
+      const expertAnswers = allAnswers.filter((answer: any) => answer.expert_id === expertId)
 
       // Combine questions with expert's answers
       screeningQuestions = projectQuestions.map((question: any) => {
@@ -228,15 +284,23 @@ const fetchExpertData = async (expertId: number, projectId: number | null = null
     if (projectId) {
       try {
         // First, get the project_publish_id for this expert and project
-        const publishedResponse = await API.get(`/project_published/?expert_id=${expertId}&project_id=${projectId}`)
-        const publishedData = publishedResponse.data
+        const publishedResponse = await API.get(`/project_published/`)
+        
+        // Filter to get data matching the expert_id and project_id
+        const publishedData = publishedResponse.data.filter(
+          (item: any) => item.expert_id === expertId && item.project_id === projectId
+        )
         
         if (publishedData && publishedData.length > 0) {
           const projectPublishId = publishedData[0].project_publish_id
           
           // Then fetch availabilities using the project_publish_id
-          const availabilityResponse = await API.get(`/expert_availabilities/?project_publish_id=${projectPublishId}`)
-          expertAvailabilities = availabilityResponse.data || []
+          const availabilityResponse = await API.get(`/expert_availabilities/`)
+          
+          // Filter availabilities based on project_publish_id
+          expertAvailabilities = availabilityResponse.data.filter(
+            (avail: ExpertAvailability) => avail.project_publish_id === projectPublishId
+          ) || []
         }
       } catch (error) {
         console.error("Error fetching expert availabilities:", error)
@@ -480,18 +544,32 @@ const generateExpertsPDF = async (expertIds: number[], projectId: number | null 
       }
       doc.setFontSize(10)
 
-      const expertNotes = expert.notes || "The expert has over 15 years of experience in the insurance industry, with a strong focus on sales and marketing. She previously worked as an Associate Director at Fuse Group, an innovative insurtech platform that connects a wide range of insurance products from multiple providers with diverse distribution channels. She was in charge of deveective sales and expanding distribution networks.\n\nShe confirmed that she is well-equipped to cover the listed topic. She would be happy to provide insights into the landscape of sales channels within the insurance industry. Please see below her screening responses:"
+      // Prepare expert biography - clean up the text first
+      let expertBio = expert.notes || "The expert has over 15 years of experience in the insurance industry, with a strong focus on sales and marketing. She previously worked as an Associate Director at Fuse Group, an innovative insurtech platform that connects a wide range of insurance products from multiple providers with diverse distribution channels. She was in charge of developing effective sales and expanding distribution networks.\n\nShe confirmed that she is well-equipped to cover the listed topic. She would be happy to provide insights into the landscape of sales channels within the insurance industry."
+      
+      // Clean up the bio text - remove any existing "Please see below" sentence to avoid duplication
+      expertBio = expertBio.replace(/\s*Please see below her screening responses[:.]*\s*/gi, '')
+      expertBio = expertBio.replace(/\s*Please see below his screening responses[:.]*\s*/gi, '')
+      
+      // Add the required sentence at the end if there are screening questions
+      if (screeningQuestions && screeningQuestions.length > 0) {
+        // Ensure proper spacing and punctuation
+        if (!expertBio.endsWith('.') && !expertBio.endsWith('!') && !expertBio.endsWith('?')) {
+          expertBio += '.'
+        }
+        expertBio += " Please see below her screening responses:"
+      }
 
-      // Use custom justified text renderer with slightly reduced paragraph spacing
+      // Use custom justified text renderer 
       let currentY = 55
-      currentY = renderJustifiedText(doc, expertNotes, leftMargin, currentY, contentWidth, lineHeight - 0.75) // Slightly reduced line height for paragraph spacing
+      currentY = renderJustifiedText(doc, expertBio, leftMargin, currentY, contentWidth, lineHeight - 0.3)
 
       // Add spacing after bio section
-        currentY += 6
+      currentY += 6
 
       // ================ SCREENING QUESTIONS SECTION ================
       if (screeningQuestions && screeningQuestions.length > 0) {
-        // Introduction text - only if there are screening questions
+        // Process each screening question with the expert's actual answers
         try {
           doc.setFont("Montserrat", "normal")
         } catch (error) {
@@ -500,46 +578,52 @@ const generateExpertsPDF = async (expertIds: number[], projectId: number | null 
         doc.setFontSize(10)
 
         // Process each screening question
-// In the screening questions section, replace this part:
-screeningQuestions.forEach((question, index) => {
-  // Check if we need to add a new page
-  if (currentY > 260) {
-    // Leaving room for footer
-    doc.addPage()
-    currentY = 20 // Reset Y position on new page
-  }
+        screeningQuestions.forEach((question, index) => {
+          // Check if we need to add a new page
+          if (currentY > 260) {
+            // Leaving room for footer
+            doc.addPage()
+            currentY = 20 // Reset Y position on new page
+          }
 
-  // Question title - Format: "#1 - a) Question text"
-  try {
-    doc.setFont("Montserrat", "bold")
-  } catch (error) {
-    doc.setFont("helvetica", "bold")
-  }
-  doc.setFontSize(10)
-  doc.setTextColor(0, 0, 0) // Black for question
+          // Question title - Format: "#1 - a) Question text" for first question, "#1 - b)" for subsequent parts
+          try {
+            doc.setFont("Montserrat", "bold")
+          } catch (error) {
+            doc.setFont("helvetica", "bold")
+          }
+          doc.setFontSize(10)
+          doc.setTextColor(0, 0, 0) // Black for question
 
-  const questionNumber = `#${index + 1} - ${question.question}`
-  doc.text(questionNumber, leftMargin, currentY)
-  currentY += 4 // Reduced from 6 to 4 for tighter spacing
+          // Generate question letter (a, b, c, etc.)
+          const questionLetter = String.fromCharCode(97 + index) // 97 is 'a' in ASCII
+          const questionNumber = `#${Math.floor(index / 5) + 1} - ${questionLetter}) ${question.question}`
+          
+          // Use justified text for questions too
+          currentY = renderJustifiedText(doc, questionNumber, leftMargin, currentY, contentWidth, lineHeight)
+          currentY += 2 // Reduced spacing after question
 
-  // Answer with RED text - exactly like in the PDF
-  try {
-    doc.setFont("Montserrat", "normal")
-  } catch (error) {
-    doc.setFont("helvetica", "normal")
-  }
-  doc.setTextColor(255, 0, 0) // Red color for answers
+          // Answer with RED text - Using the expert's actual answer from the API
+          try {
+            doc.setFont("Montserrat", "normal")
+          } catch (error) {
+            doc.setFont("helvetica", "normal")
+          }
+          doc.setTextColor(255, 0, 0) // Red color for answers
 
-  // Use custom justified text for answers (in red)
-  currentY = renderJustifiedText(doc, question.answer, leftMargin, currentY, contentWidth, lineHeight - 1) // Reduced line height
-  currentY += 2 // Reduced from 4 to 2 for tighter spacing after each answer
-})
+          // Use the actual answer from the expert, not a generic one
+          const expertAnswer = question.answer || "No answer provided"
+          
+          // Use custom justified text for answers (in red) - EACH EXPERT'S ACTUAL ANSWER
+          currentY = renderJustifiedText(doc, expertAnswer, leftMargin, currentY, contentWidth, lineHeight - 1) // Reduced line height
+          currentY += 3 // Spacing after each answer
+        })
       }
 
       // ================ EMPLOYMENT HISTORY SECTION ================
       // Reset text color to black
       doc.setTextColor(0, 0, 0)
-        currentY += 4
+      currentY += 4
 
       try {
         doc.setFont("Montserrat", "bold")
@@ -565,16 +649,37 @@ screeningQuestions.forEach((question, index) => {
         }
         doc.setFontSize(10)
 
-        sortedExperiences.forEach((exp) => {
+        // Calculate the maximum width needed for date ranges to align the "|" properly
+        let maxDateWidth = 0
+        const employmentData = sortedExperiences.map((exp) => {
+          const dateRange = formatDate(exp.start_date) + " - " + (exp.end_date ? formatDate(exp.end_date) : "Present")
+          const dateWidth = doc.getTextWidth(dateRange)
+          maxDateWidth = Math.max(maxDateWidth, dateWidth)
+          return {
+            dateRange,
+            position: `${exp.title} at ${exp.company_name}`,
+            dateWidth
+          }
+        })
+
+        // Set alignment position based on the longest date range for perfect alignment
+        const alignmentPosition = leftMargin + maxDateWidth + 8 // 8mm padding after the longest date
+
+        employmentData.forEach((emp) => {
           if (currentY > 260) {
             doc.addPage()
             currentY = 6.5
           }
 
-          // Format as in PDF: "MMM YY - Present | Title at Company"
-          const dateRange = formatDate(exp.start_date) + " - " + (exp.end_date ? formatDate(exp.end_date) : "Present")
-          const position = `${dateRange} | ${exp.title} at ${exp.company_name}`
-          doc.text(position, leftMargin, currentY)
+          // Draw date range (left-aligned)
+          doc.text(emp.dateRange, leftMargin, currentY)
+          
+          // Draw separator "|" at calculated aligned position (so all "|" are vertically aligned)
+          doc.text("|", alignmentPosition, currentY)
+          
+          // Draw position title after separator (right side aligned)
+          doc.text(emp.position, alignmentPosition + 8, currentY) // 8mm spacing after the "|"
+          
           currentY += 6.5
         })
       }
@@ -598,23 +703,38 @@ screeningQuestions.forEach((question, index) => {
         }
         doc.setFontSize(10)
         
-        // Display availabilities from API
-        if (expertAvailabilities.length === 1) {
+        // Sort availabilities by date (earliest/youngest first)
+        const sortedAvailabilities = [...expertAvailabilities].sort((a, b) => {
+          try {
+            const dateA = new Date(a.available_time)
+            const dateB = new Date(b.available_time)
+            return dateA.getTime() - dateB.getTime() // Ascending order (earliest first)
+          } catch (error) {
+            // If date parsing fails, maintain original order
+            return 0
+          }
+        })
+        
+        // Display sorted availabilities
+        if (sortedAvailabilities.length === 1) {
           // If only one availability, don't use bullet points
-          doc.text(expertAvailabilities[0].available_time, leftMargin, currentY)
+          const formattedDate = formatAvailabilityDate(sortedAvailabilities[0].available_time)
+          doc.text(formattedDate, leftMargin, currentY)
+          currentY += 6
         } else {
           // If more than one availability, use bullet points
           const bulletPoint = "• "
-          const bulletIndent = 3  // Indentation for bullet points
+          const bulletIndent = 5  // Increased indentation for bullet points
           
-          expertAvailabilities.forEach((availability, index) => {
+          sortedAvailabilities.forEach((availability, index) => {
             if (currentY > 260) {
               doc.addPage()
               currentY = 20
             }
             
+            const formattedDate = formatAvailabilityDate(availability.available_time)
             doc.text(bulletPoint, leftMargin, currentY)
-            doc.text(availability.available_time, leftMargin + bulletIndent, currentY)
+            doc.text(formattedDate, leftMargin + bulletIndent, currentY)
             currentY += 6
           })
         }
