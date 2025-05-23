@@ -7,10 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "react-toastify"
 import API from "@/services/api"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/page"
 import { format, addHours, parseISO, isValid } from "date-fns"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ExpertAvailability {
@@ -360,30 +357,29 @@ export default function EditAvailabilitySection({ expertId, projectId }: EditAva
 
   return (
     <Card className="shadow-sm border border-gray-100 overflow-hidden rounded-xl bg-gradient-to-br from-white to-blue-50">
-        <CardHeader className="bg-white border-b border-gray-100 py-4 px-6 group-hover:bg-blue-50/50 transition-colors">
-            <CardTitle className="text-lg font-semibold text-gray-800 flex items-center justify-between">
+      <CardHeader className="bg-white border-b border-gray-100 py-4 px-6 group-hover:bg-blue-50/50 transition-colors">
+        <CardTitle className="text-lg font-semibold text-gray-800 flex items-center justify-between">
           <div className="flex items-center">
             <div className="w-1 h-5 bg-blue-600 mr-3 rounded-full"></div>
             <Calendar className="h-4 w-4 mr-2 text-blue-600" />
             <Briefcase className="h-4 w-4 mr-2 text-blue-600 group-hover:text-blue-500 transition-colors" />
-
             Expert Availability
           </div>
           {!isAdding && (
             <Button
-            type="button"
-            onClick={() => {
-              setIsAdding(true)
-              setEditingAvailability(null)
-              setDate(addHours(new Date(), 24))
-              setHour("14")
-              setMinute("30")
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 py-1 h-8 px-3 text-xs rounded-lg z-20 relative"
+              type="button"
+              onClick={() => {
+                setIsAdding(true)
+                setEditingAvailability(null)
+                setDate(addHours(new Date(), 24))
+                setHour("14")
+                setMinute("30")
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 py-1 h-8 px-3 text-xs rounded-lg z-20 relative"
             >
-            <Plus className="h-3.5 w-3.5" />
-            Add Availability
-          </Button>
+              <Plus className="h-3.5 w-3.5" />
+              Add Availability
+            </Button>
           )}
         </CardTitle>
       </CardHeader>
@@ -418,36 +414,20 @@ export default function EditAvailabilitySection({ expertId, projectId }: EditAva
                         <Label htmlFor="date" className="text-sm font-medium text-gray-700 flex items-center gap-2">
                           <Calendar className="h-3.5 w-3.5 text-gray-500" /> Date
                         </Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal bg-white h-10 rounded-lg pl-3 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow",
-                                !date && "text-muted-foreground",
-                              )}
-                            >
-                              <Calendar className="mr-2 h-4 w-4 text-gray-400" />
-                              {date ? format(date, "PPP") : <span>Pick a date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            
-                            
-                            <CalendarComponent
-                              mode="single"
-                              selected={date}
-                              onSelect={setDate}
-                              initialFocus
-                              disabled={(date) => {
-                                // Allow editing past dates if we're editing an existing availability
-                                if (editingAvailability) return false
-                                // Otherwise only allow future dates for new availabilities
-                                return date < new Date()
-                              }}
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            id="date"
+                            value={date ? format(date, "yyyy-MM-dd") : ""}
+                            onChange={(e) => {
+                              const newDate = e.target.value ? new Date(e.target.value) : undefined
+                              setDate(newDate)
+                            }}
+                            className="w-full bg-white h-10 rounded-lg pl-9 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow"
+                            min={editingAvailability ? undefined : format(new Date(), "yyyy-MM-dd")}
+                          />
+                          <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        </div>
                       </div>
 
                       {/* Time Picker */}
@@ -456,29 +436,44 @@ export default function EditAvailabilitySection({ expertId, projectId }: EditAva
                           <Clock className="h-3.5 w-3.5 text-gray-500" /> Time
                         </Label>
                         <div className="flex space-x-2">
-                          <Select value={hour} onValueChange={setHour}>
-                            <SelectTrigger className="w-full bg-white h-10 rounded-lg pl-3 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow">
-                              <SelectValue placeholder="Hour" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {hourOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <span className="flex items-center text-gray-500">:</span>
+                          <div className="relative w-full">
+                            <Select value={hour} onValueChange={setHour}>
+                              <SelectTrigger className="w-full bg-white h-10 rounded-lg pl-3 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow">
+                                <SelectValue placeholder="Hour" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px] bg-white">
+                                <div className="grid grid-cols-2 gap-1 p-1 bg-white">
+                                  {hourOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                      className="flex items-center justify-center px-3 py-1.5 text-sm hover:bg-blue-50 hover:text-blue-600 cursor-pointer data-[selected]:bg-blue-500 data-[selected]:text-white"
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </div>
+                              </SelectContent>
+                            </Select>
+                            <Clock className="absolute right-8 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                          </div>
+                          <span className="flex items-center text-gray-500 font-medium">:</span>
                           <Select value={minute} onValueChange={setMinute}>
                             <SelectTrigger className="w-full bg-white h-10 rounded-lg pl-3 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow">
                               <SelectValue placeholder="Minute" />
                             </SelectTrigger>
-                            <SelectContent>
-                              {minuteOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
+                            <SelectContent className="bg-white">
+                              <div className="grid grid-cols-2 gap-1 p-1 bg-white">
+                                {minuteOptions.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                    className="flex items-center justify-center px-3 py-1.5 text-sm hover:bg-blue-50 hover:text-blue-600 cursor-pointer data-[selected]:bg-blue-500 data-[selected]:text-white"
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </div>
                             </SelectContent>
                           </Select>
                         </div>
@@ -486,34 +481,34 @@ export default function EditAvailabilitySection({ expertId, projectId }: EditAva
                     </div>
 
                     <div className="flex justify-end gap-2">
-                    <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setIsAdding(false)
-                              setEditingAvailability(null)
-                            }}
-                            className="text-sm h-8 px-4 rounded-full border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={editingAvailability ? handleUpdateAvailability : handleAddAvailability}
-                            disabled={saving}
-                            className="text-sm h-8 px-4 rounded-full bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-md hover:shadow-lg transition-all duration-200"
-                          >
-                            {saving ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                {editingAvailability ? "Updating..." : "Saving..."}
-                              </>
-                            ) : editingAvailability ? (
-                              "Update Availability"
-                            ) : (
-                              "Add Availability"
-                            )}
-                          </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsAdding(false)
+                          setEditingAvailability(null)
+                        }}
+                        className="text-sm h-8 px-4 rounded-full border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={editingAvailability ? handleUpdateAvailability : handleAddAvailability}
+                        disabled={saving}
+                        className="text-sm h-8 px-4 rounded-full bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {editingAvailability ? "Updating..." : "Saving..."}
+                          </>
+                        ) : editingAvailability ? (
+                          "Update Availability"
+                        ) : (
+                          "Add Availability"
+                        )}
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -570,23 +565,23 @@ export default function EditAvailabilitySection({ expertId, projectId }: EditAva
                   <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 font-medium">No availabilities added yet</p>
                   {!isAdding && projectPublishId !== null && (
-                          <Button
-                            type="button"
-                            onClick={editingAvailability ? handleUpdateAvailability : handleAddAvailability}
-                            disabled={saving}
-                            className="text-sm h-10 px-6 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
-                          >
-                            {saving ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                {editingAvailability ? "Updating..." : "Saving..."}
-                              </>
-                            ) : editingAvailability ? (
-                              "Update Availability"
-                            ) : (
-                              "Add Availability"
-                            )}
-                          </Button>
+                    <Button
+                      type="button"
+                      onClick={editingAvailability ? handleUpdateAvailability : handleAddAvailability}
+                      disabled={saving}
+                      className="text-sm h-10 px-6 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {editingAvailability ? "Updating..." : "Saving..."}
+                        </>
+                      ) : editingAvailability ? (
+                        "Update Availability"
+                      ) : (
+                        "Add Availability"
+                      )}
+                    </Button>
                   )}
                 </div>
               )}

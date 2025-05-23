@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import API from "@/services/api"
 import ExportExpertsButton from "@/components/export-experts-button"
-import { Loader2 } from "lucide-react"
+import { Loader2, Trash2 } from "lucide-react"
+import { toast } from "react-hot-toast"
 
 interface Expert {
   expert_id: number
@@ -272,6 +273,27 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
     }
   }
 
+  const handleRemoveFromPublished = async (expertId: number) => {
+    try {
+      const publishedEntry = publishedData.find(
+        (item) => item.expert_id === expertId && item.project_id === parseInt(project_id)
+      );
+  
+      if (!publishedEntry) throw new Error("Expert not found in published.");
+  
+      await API.delete(`/project_published/${publishedEntry.project_publish_id}/`, {
+        withCredentials: true,
+      });
+  
+      // Update local state to remove the expert
+      setPublishedExperts((prevExperts) => prevExperts.filter((expert) => expert.expert_id !== expertId));
+      toast.success("Expert removed from published!");
+    } catch (error) {
+      console.error("Error removing expert from published:", error);
+      toast.error("Failed to remove expert from published.");
+    }
+  };
+
   // Toggle expert selection for PDF export
   const toggleExpertSelection = (expertId: number) => {
     setSelectedExpertIds((prev) =>
@@ -340,6 +362,10 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
               <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Availability</TableHead>
+              {/* column delete */}
+              <TableHead>Delete</TableHead>
+              
+
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -384,6 +410,17 @@ const Published = ({ project_id, onSelectExpert }: PublishedProps) => {
                       >
                         {availability}
                       </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <Trash2
+                        className="cursor-pointer text-red-500 hover:text-red-700"
+                        onClick={async (e) => {
+                          e.stopPropagation(); // Prevent row selection
+                          // Handle deleting expert from published
+                          await handleRemoveFromPublished(expert.expert_id);
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 )

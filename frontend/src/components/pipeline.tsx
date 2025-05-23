@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import API from "@/services/api";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { Trash2 } from "lucide-react";
 
 interface Expert {
   expert_id: number;
@@ -194,6 +195,27 @@ const Pipeline = ({ project_id, onSelectExpert }: PipelineProps) => {
     }
   };
 
+  const handleRemoveFromPipeline = async (expertId: number) => {
+    try {
+      const pipelineItem = pipelineData.find(
+        (item) => item.expert_id === expertId && item.project_id === parseInt(project_id)
+      );
+      
+      if (!pipelineItem) throw new Error("Expert not found in pipeline.");
+  
+      await API.delete(`/project_pipeline/${pipelineItem.project_pipeline_id}/`, {
+        withCredentials: true,
+      });
+  
+      // Update local state to remove the expert
+      setPipelineExperts((prevExperts) => prevExperts.filter((expert) => expert.expert_id !== expertId));
+      toast.success("Expert removed from pipeline!");
+    } catch (error) {
+      console.error("Error removing expert from pipeline:", error);
+      toast.error("Failed to remove expert from pipeline.");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -223,6 +245,7 @@ const Pipeline = ({ project_id, onSelectExpert }: PipelineProps) => {
             <TableHead>Contact details</TableHead>
             <TableHead>Location</TableHead>
             <TableHead>Action</TableHead>
+            <TableHead>Delete</TableHead>
           </TableRow>
         </TableHeader>
           <TableBody>
@@ -253,6 +276,17 @@ const Pipeline = ({ project_id, onSelectExpert }: PipelineProps) => {
                     >
                       {movingExpert === expert.expert_id ? "Moving..." : "Move to Published"}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="flex items-center justify-center">
+                  <Trash2
+                    // Delete icon centered in the cell
+                      className="cursor-pointer text-red-500 hover:text-red-700 h-4 w-5 "
+                      onClick={async (e) => {
+                        e.stopPropagation(); // Prevent row selection
+                        // Handle deleting expert from pipeline
+                        await handleRemoveFromPipeline(expert.expert_id);
+                      }}
+                    />
                   </TableCell>
                 </TableRow>
               ))

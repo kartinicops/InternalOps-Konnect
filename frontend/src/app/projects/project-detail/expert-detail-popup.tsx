@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "react-toastify"
 import { motion } from "framer-motion"
+import EditAvailabilitySection from "@/components/edit-availability-section" // Pastikan ini di-import
 
 interface Expert {
   expert_id: number
@@ -38,6 +39,7 @@ interface Expert {
   notes: string
   email_confirmed: boolean
   created_at?: string
+  number_of_credits: number // Added to fetch credits
 }
 
 interface Experience {
@@ -95,6 +97,9 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
   const [savingAnswer, setSavingAnswer] = useState<number | null>(null)
   const [navigating, setNavigating] = useState(false)
 
+  // Menambahkan state untuk mengecek apakah expert berada di pipeline atau published
+  const [isPipelineExpert, setIsPipelineExpert] = useState<boolean>(false);
+
   useEffect(() => {
     const fetchExpertData = async () => {
       try {
@@ -115,6 +120,13 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
         ]
 
         const uniqueProjectIds = [...new Set(projectIds)]
+
+        // Tentukan apakah expert berada di pipeline atau published
+        if (pipelineResponse.data.length > 0) {
+          setIsPipelineExpert(true); // Expert berada di pipeline
+        } else if (publishedResponse.data.length > 0) {
+          setIsPipelineExpert(false); // Expert berada di published
+        }
 
         if (uniqueProjectIds.length > 0) {
           const projectsData = await Promise.all(
@@ -163,7 +175,6 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
   const handleEditExpert = () => {
     try {
       setNavigating(true)
-      // Use currentProjectId instead of projectId
       router.push(
         `/projects/project-detail/project-experts/edit-expert?id=${expertId}${currentProjectId ? `&projectId=${currentProjectId}` : ""}`,
       )
@@ -245,10 +256,8 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
 
   const currentPosition = getCurrentPosition()
 
-  // Check if there are any unsaved changes
   const hasUnsavedChanges = Object.keys(editedAnswers).length > 0
 
-  // Handle close with confirmation if there are unsaved changes
   const handleCloseWithConfirmation = () => {
     if (hasUnsavedChanges) {
       if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
@@ -280,7 +289,6 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
   return (
     <div className="h-full overflow-auto">
       <div className="relative bg-white h-full">
-        {/* Close Button */}
         <motion.button
           onClick={handleCloseWithConfirmation}
           whileHover={{ scale: 1.1 }}
@@ -293,7 +301,6 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
           </div>
         </motion.button>
 
-        {/* Profile Section */}
         <div className="p-6 bg-gradient-to-br from-blue-50 to-white border-b sticky top-0 z-10">
           <div className="flex items-start">
             <div className="flex-shrink-0 mr-5 flex flex-col items-center ml-4 pt-4">
@@ -337,13 +344,17 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
                     <MapPin className="h-3 w-3 mr-1" />
                     {expert.country_of_residence}
                   </Badge>
-                  <Badge className="bg-green-100 text-green-800 border-none flex items-center">
-                    <DollarSign className="h-3 w-3 mr-1" />
-                    {expert.expert_cost}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-green-100 text-green-800 border-none flex items-center">
+                      <DollarSign className="h-3 w-3 mr-1" />
+                      {expert.expert_cost}
+                    </Badge>
+                    <Badge className="bg-yellow-100 text-yellow-800 border-none flex items-center">
+                      <span className="h-3 w-3 mr-1">📊</span> Credits: {expert.number_of_credits}
+                    </Badge>
+                  </div>
                 </div>
 
-                {/* Contact icons */}
                 <div className="flex gap-3 mt-4">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -391,7 +402,6 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
           </div>
         </div>
 
-        {/* Tabs Section */}
         <Tabs defaultValue="career" className="flex-1 flex flex-col h-[calc(100%-172px)]">
           <TabsList className="flex p-1 mx-6 mt-4 bg-gray-100 rounded-lg justify-center">
             <TabsTrigger
@@ -415,7 +425,6 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
           </TabsList>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {/* Career Tab */}
             <TabsContent value="career" className="mt-0 h-full">
               <div className="space-y-6">
                 <div>
@@ -461,7 +470,6 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
               </div>
             </TabsContent>
 
-            {/* Projects Tab */}
             <TabsContent value="projects" className="mt-0 h-full">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <Briefcase className="h-5 w-5 mr-2 text-blue-500" />
@@ -500,7 +508,6 @@ const ExpertDetailPopup: React.FC<ExpertDetailPopupProps> = ({ expertId, onClose
               )}
             </TabsContent>
 
-            {/* Screening Tab */}
             <TabsContent value="screening" className="mt-0 h-full">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <ClipboardList className="h-5 w-5 mr-2 text-blue-500" />

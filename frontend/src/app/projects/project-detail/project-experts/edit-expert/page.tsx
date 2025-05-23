@@ -17,18 +17,16 @@ import { FaLinkedin } from "react-icons/fa"
 import { CountriesSelect } from "@/components/countries-select"
 import EditAvailabilitySection from "@/components/edit-availability-section"
 
-// Import the ExpertStatusManager from its own file
-// Remove this line:
-// import { ExpertStatusManager } from "@/components/expert-status-manager";
-
 export default function EditExpert() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const expertId = searchParams.get("id")
   const projectId = searchParams.get("projectId") // Optional project ID if coming from a project
+  const source = searchParams.get("source") // New parameter to identify source (pipeline or published)
 
   const [loading, setLoading] = useState<boolean>(true)
   const [saving, setSaving] = useState<boolean>(false)
+  const [isPublishedExpert, setIsPublishedExpert] = useState<boolean>(false) // Track if expert is from published table
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -38,6 +36,7 @@ export default function EditExpert() {
     countryOfResidence: "",
     expertCost: 0,
     notes: "",
+    numberOfCredits: 0,
   })
 
   // Track original experience IDs to detect removed entries for deletion
@@ -47,15 +46,46 @@ export default function EditExpert() {
     { title: "", company_name: "", start_date: "", end_date: "", id: Date.now(), experience_id: null },
   ])
 
-  // We don't need publishedData state anymore as the ExpertStatusManager fetches its own data
+  // Add a new state for the expert status
+  const [expertStatus, setExpertStatus] = useState<string>("Unknown")
+  const [projectPublishId, setProjectPublishId] = useState<number | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState<boolean>(false)
 
-  // Handle status change function
-  // Remove this function:
-  // const handleStatusChange = (statusData) => {
-  //   console.log("Status/availability changed:", statusData);
-  //   // No need to update local state as the ExpertStatusManager handles its own state
-  //   // We just need this for notification purposes
-  // };
+  // Determine if expert is from published table
+  useEffect(() => {
+    const checkExpertSource = async () => {
+      // If source parameter is explicitly provided, use it
+      if (source) {
+        setIsPublishedExpert(source === "published")
+        return
+      }
+
+      // If no source parameter, check if expert exists in published table for this project
+      if (expertId && projectId) {
+        try {
+          const response = await API.get(`/project_published/`, {
+            withCredentials: true,
+          })
+
+          // Check if this expert exists in the published table for this project
+          const publishedRecord = response.data.find(
+            (item: any) => item.expert_id === Number(expertId) && item.project_id === Number(projectId)
+          )
+
+          setIsPublishedExpert(!!publishedRecord)
+        } catch (error) {
+          console.error("Error checking expert source:", error)
+          // Default to false if we can't determine
+          setIsPublishedExpert(false)
+        }
+      } else {
+        // If no projectId, assume it's not a published expert
+        setIsPublishedExpert(false)
+      }
+    }
+
+    checkExpertSource()
+  }, [expertId, projectId, source])
 
   // Fetch the expert data on component mount
   useEffect(() => {
@@ -81,6 +111,7 @@ export default function EditExpert() {
           countryOfResidence: expertData.country_of_residence,
           expertCost: expertData.expert_cost,
           notes: expertData.notes || "",
+          numberOfCredits: expertData.number_of_credits || 0,
         })
 
         // Fetch expert experiences
@@ -124,6 +155,90 @@ export default function EditExpert() {
 
     fetchExpertData()
   }, [expertId, router])
+
+  // Add a useEffect to fetch the status when the component mounts
+  useEffect(() => {
+    const fetchExpertStatus = async () => {
+      if (!expertId || !projectId) return
+
+      try {
+        const response = await API.get(`/project_published/`, {
+          withCredentials: true,
+        })
+
+        // Find the published record for this expert and project
+        const publishedRecord = response.data.find(
+          (item: any) => item.expert_id === Number(expertId) && item.project_id === Number(projectId),
+        )
+
+        if (publishedRecord) {
+          setProjectPublishId(publishedRecord.project_publish_id)
+          
+          // Map status_id to a readable status
+          let status = "Unknown"
+          switch (publishedRecord.status_id) {
+            case 1:
+              status = "Proposed"
+              break
+            case 2:
+              status = "Schedule Call"
+              break
+            case 3:
+              status = "Rejected"
+              break
+            default:
+              status = "Unknown"
+          }
+          setExpertStatus(status)
+        }
+      } catch (error) {
+        console.error("Error fetching expert status:", error)
+      }
+    }
+
+    fetchExpertStatus()
+  }, [expertId, projectId])
+
+  // Handle status change function
+  const handleStatusChange = async (newStatus: string) => {
+    if (!projectPublishId) {
+      toast.error("No project publication record found")
+      return
+    }
+
+    setUpdatingStatus(true)
+    
+    try {
+      // Map status to status_id
+      let statusId = 1
+      switch (newStatus) {
+        case "Proposed":
+          statusId = 1
+          break
+        case "Schedule Call":
+          statusId = 2
+          break
+        case "Rejected":
+          statusId = 3
+          break
+        default:
+          statusId = 1
+      }
+
+      // Update the status via API
+      await API.put(`/project_published/${projectPublishId}/`, {
+        status_id: statusId
+      })
+
+      setExpertStatus(newStatus)
+      toast.success(`Status updated to ${newStatus}`)
+    } catch (error) {
+      console.error("Error updating status:", error)
+      toast.error("Failed to update status")
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
 
   // This will handle the back button navigation
   const handleBack = () => {
@@ -253,6 +368,7 @@ export default function EditExpert() {
         industry: formData.industry,
         country_of_residence: formData.countryOfResidence,
         expert_cost: formData.expertCost,
+        number_of_credits: formData.numberOfCredits,
         notes: formData.notes || null,
       })
 
@@ -351,7 +467,9 @@ export default function EditExpert() {
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold text-blue-600">Edit Expert</h1>
+          <h1 className="text-3xl font-bold text-blue-600">
+            Edit Expert
+          </h1>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -364,6 +482,26 @@ export default function EditExpert() {
                 Personal Information
               </CardTitle>
             </CardHeader>
+            {/* {projectId && isPublishedExpert && (
+              <div className="bg-white px-6 py-2 border-b border-gray-100">
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+                  <span
+                    className={`text-sm font-medium px-2 py-1 rounded-full ${
+                      expertStatus === "Proposed"
+                        ? "bg-blue-100 text-blue-800"
+                        : expertStatus === "Schedule Call"
+                          ? "bg-green-100 text-green-800"
+                          : expertStatus === "Rejected"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {expertStatus}
+                  </span>
+                </div>
+              </div>
+            )} */}
             <CardContent className="p-6 relative">
               {/* Background decorative elements */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-100 rounded-full opacity-20 -mr-20 -mt-20"></div>
@@ -484,25 +622,6 @@ export default function EditExpert() {
                       placeholder="Enter expert biography or additional notes..."
                       className="w-full min-h-[120px] bg-white rounded-lg p-3 pl-3 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow resize-y border border-gray-300 focus:border-blue-300 focus:outline-none"
                     />
-                    {/* <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="absolute left-3 top-3 h-4 w-4 text-gray-400"
-                    >
-                      <line x1="8" y1="6" x2="21" y2="6"></line>
-                      <line x1="8" y1="12" x2="21" y2="12"></line>
-                      <line x1="8" y1="18" x2="21" y2="18"></line>
-                      <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                      <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                      <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                    </svg> */}
                   </div>
                   <p className="text-xs text-gray-500 ml-1">
                     Provide a short biography or any additional information about the expert
@@ -589,7 +708,7 @@ export default function EditExpert() {
                 </div>
 
                 {/* Expert Cost */}
-                <div className="space-y-2 group md:col-span-1">
+                <div className="space-y-2 group">
                   <Label
                     htmlFor="expertCost"
                     className="text-sm font-medium text-gray-700 flex items-center gap-2 group-hover:text-blue-600 transition-colors"
@@ -628,6 +747,87 @@ export default function EditExpert() {
                   </div>
                   <p className="text-xs text-gray-500 ml-1">Hourly rate in USD</p>
                 </div>
+
+                {/* Number of Credits */}
+                <div className="space-y-2 group">
+                  <Label
+                    htmlFor="numberOfCredits"
+                    className="text-sm font-medium text-gray-700 flex items-center gap-2 group-hover:text-blue-600 transition-colors"
+                  >
+                    Number of Credits
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="numberOfCredits"
+                      type="number"
+                      value={formData.numberOfCredits === 0 ? '' : formData.numberOfCredits}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? '' : parseInt(e.target.value);
+                        if (value === '' || (value >= 1 && value <= 4)) {
+                          setFormData((prev) => ({ ...prev, numberOfCredits: value }));
+                        }
+                      }}
+                      placeholder="Enter 1, 2, 3, or 4"
+                      min="1"
+                      max="4"
+                      className="bg-white h-10 rounded-lg pl-7 text-sm focus:ring-blue-200 shadow-sm hover:shadow-md transition-shadow"
+                    />
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium text-sm">
+                      #
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-1">Enter 1, 2, 3, or 4 for the number of credits</p>
+                </div>
+
+                {/* Status Section - Only show for published experts */}
+                {isPublishedExpert && (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="status" className="text-sm font-medium text-gray-700">
+                      Status
+                    </Label>
+                    <div className="flex gap-4">
+                      <div
+                        className={`px-4 py-2 rounded-lg border cursor-pointer transition-all ${expertStatus === "Proposed" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}
+                        onClick={() => handleStatusChange("Proposed")}
+                      >
+                        <span
+                          className={`inline-flex items-center gap-1 ${expertStatus === "Proposed" ? "text-blue-700" : "text-gray-500"}`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full ${expertStatus === "Proposed" ? "bg-blue-500" : "bg-gray-300"}`}
+                          ></span>
+                          Proposed
+                        </span>
+                      </div>
+                      <div
+                        className={`px-4 py-2 rounded-lg border cursor-pointer transition-all ${expertStatus === "Schedule Call" ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}
+                        onClick={() => handleStatusChange("Schedule Call")}
+                      >
+                        <span
+                          className={`inline-flex items-center gap-1 ${expertStatus === "Schedule Call" ? "text-green-700" : "text-gray-500"}`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full ${expertStatus === "Schedule Call" ? "bg-green-500" : "bg-gray-300"}`}
+                          ></span>
+                          Schedule Call
+                        </span>
+                      </div>
+                      <div
+                        className={`px-4 py-2 rounded-lg border cursor-pointer transition-all ${expertStatus === "Rejected" ? "border-red-500 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
+                        onClick={() => handleStatusChange("Rejected")}
+                      >
+                        <span
+                          className={`inline-flex items-center gap-1 ${expertStatus === "Rejected" ? "text-red-700" : "text-gray-500"}`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full ${expertStatus === "Rejected" ? "bg-red-500" : "bg-gray-300"}`}
+                          ></span>
+                          Rejected
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -800,8 +1000,10 @@ export default function EditExpert() {
             </CardContent>
           </Card>
 
-          {/* Expert Availability Section */}
-          <EditAvailabilitySection expertId={expertId} projectId={projectId} />
+          {/* Expert Availability Section - Only show for published experts */}
+          {isPublishedExpert && (
+            <EditAvailabilitySection expertId={expertId} projectId={projectId} />
+          )}
 
           {/* Form Actions */}
           <div className="flex justify-end gap-4 pt-4">
